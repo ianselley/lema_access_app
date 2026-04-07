@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Scan Result - YA UTILIZADO</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&amp;family=Space_Grotesk:wght@500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed-dim": "#ffb783",
+                        "on-secondary-container": "#b2b3f2",
+                        "background": "#131313",
+                        "surface-bright": "#3a3939",
+                        "on-tertiary-fixed": "#301400",
+                        "error-container": "#93000a",
+                        "primary": "#c0c1ff",
+                        "on-error": "#690005",
+                        "tertiary": "#ffb783",
+                        "on-tertiary-container": "#452000",
+                        "on-tertiary": "#4f2500",
+                        "surface-container-high": "#2a2a2a",
+                        "on-background": "#e5e2e1",
+                        "on-surface": "#e5e2e1",
+                        "on-primary-fixed": "#07006c",
+                        "secondary": "#c0c1ff",
+                        "outline": "#908fa0",
+                        "surface-container": "#201f1f",
+                        "inverse-surface": "#e5e2e1",
+                        "tertiary-fixed": "#ffdcc5",
+                        "on-secondary-fixed": "#13144a",
+                        "secondary-fixed-dim": "#c0c1ff",
+                        "primary-fixed": "#e1e0ff",
+                        "surface-dim": "#131313",
+                        "primary-fixed-dim": "#c0c1ff",
+                        "on-primary-container": "#0d0096",
+                        "surface-container-lowest": "#0e0e0e",
+                        "inverse-primary": "#494bd6",
+                        "surface": "#131313",
+                        "on-primary": "#1000a9",
+                        "secondary-fixed": "#e1e0ff",
+                        "surface-container-highest": "#353534",
+                        "on-secondary-fixed-variant": "#404178",
+                        "on-surface-variant": "#c7c4d7",
+                        "on-secondary": "#292a60",
+                        "on-error-container": "#ffdad6",
+                        "warning": "#F59E0B",
+                        "error": "#ffb4ab",
+                        "outline-variant": "#464554",
+                        "tertiary-container": "#d97721"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .kinetic-monolith-warning {
+            background: radial-gradient(circle at top right, rgba(245, 158, 11, 0.15), transparent 60%);
+        }
+        .ghost-border {
+            border: 1px solid rgba(144, 143, 160, 0.15);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body min-h-screen flex flex-col overflow-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#0A0A0A] flex items-center justify-between px-6 h-16 w-full">
+<div class="flex items-center gap-4">
+<button class="active:scale-95 transition-transform duration-150 flex items-center justify-center p-2 rounded hover:bg-[#353534]">
+<span class="material-symbols-outlined text-[#e5e2e1]">arrow_back</span>
+</button>
+<h1 class="font-['Inter'] uppercase tracking-widest text-xs font-bold text-[#e5e2e1]">NOMBRE DEL EVENTO</h1>
+</div>
+<div class="flex items-center gap-2">
+<button class="active:scale-95 transition-transform duration-150 flex items-center justify-center p-2 rounded hover:bg-[#353534]">
+<span class="material-symbols-outlined text-[#e5e2e1]">sync</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col items-center justify-center px-6 pt-16 pb-24 kinetic-monolith-warning">
+<!-- Warning Icon Cluster -->
+<div class="relative mb-8">
+<div class="absolute inset-0 bg-warning opacity-20 blur-3xl rounded-full"></div>
+<div class="relative w-32 h-32 flex items-center justify-center rounded-xl bg-surface-container-highest border border-warning/30 shadow-[0_0_50px_rgba(245,158,11,0.2)]">
+<span class="material-symbols-outlined text-warning text-7xl" style="font-variation-settings: 'FILL' 1;">warning</span>
+</div>
+</div>
+<!-- Typography Powerhouse -->
+<div class="text-center w-full max-w-md">
+<p class="font-label text-warning text-sm tracking-[0.3em] font-bold mb-2">TICKET REPETIDO</p>
+<h2 class="font-headline font-black text-5xl md:text-6xl text-on-surface mb-4 leading-none">YA UTILIZADO</h2>
+<div class="h-1 w-24 bg-warning mx-auto rounded-full mb-8"></div>
+</div>
+<!-- Bento Detail Card -->
+<div class="w-full max-w-md bg-surface-container-low rounded-xl p-6 ghost-border space-y-6">
+<div class="flex flex-col gap-1">
+<span class="font-label text-[10px] text-outline uppercase tracking-wider">Attendee / Asistente</span>
+<p class="font-headline text-2xl font-bold text-on-background">Sofía Rodríguez</p>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="flex flex-col gap-1 bg-surface-container-highest/40 p-4 rounded-lg">
+<span class="font-label text-[10px] text-outline uppercase tracking-wider">Status / Estado</span>
+<p class="font-headline font-bold text-warning">DUPLICADO</p>
+</div>
+<div class="flex flex-col gap-1 bg-surface-container-highest/40 p-4 rounded-lg">
+<span class="font-label text-[10px] text-outline uppercase tracking-wider">Time / Hora</span>
+<p class="font-headline font-bold text-on-surface">22:45</p>
+</div>
+</div>
+<div class="flex items-start gap-3 p-4 bg-warning/5 rounded-lg border-l-4 border-warning">
+<span class="material-symbols-outlined text-warning mt-0.5">info</span>
+<div class="flex flex-col">
+<p class="font-label text-xs font-bold text-warning uppercase">Ticket ya validado</p>
+<p class="text-xs text-on-surface-variant leading-relaxed">Escaneado previamente a las 22:45. Por favor, verifique el acceso físico.</p>
+</div>
+</div>
+</div>
+<!-- Primary Action -->
+<div class="w-full max-w-md mt-10">
+<button class="w-full h-16 bg-gradient-to-br from-[#c0c1ff] to-[#8083ff] text-black font-headline font-extrabold text-sm tracking-widest rounded-lg active:scale-95 transition-all duration-150 flex items-center justify-center gap-3">
+<span class="material-symbols-outlined font-bold">qr_code_scanner</span>
+                VOLVER A ESCANEAR
+            </button>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 bg-[#0A0A0A]/80 backdrop-blur-xl border-t border-[#c0c1ff]/15 rounded-t-lg shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
+<div class="flex justify-around items-center w-full px-4 pb-6 pt-4">
+<!-- Active State: ESCANEAR -->
+<a class="flex flex-col items-center justify-center bg-gradient-to-br from-[#c0c1ff] to-[#8083ff] text-black rounded-lg py-3 px-8 scale-105 active:scale-97 transition-all duration-100 group" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">qr_code_scanner</span>
+<span class="font-['Space_Grotesk'] text-[10px] font-bold tracking-tighter mt-1">ESCANEAR</span>
+</a>
+<!-- Inactive State: BÚSQUEDA -->
+<a class="flex flex-col items-center justify-center text-[#e5e2e1] py-3 px-8 hover:text-indigo-300 active:scale-97 transition-all duration-100 group" href="#">
+<span class="material-symbols-outlined">keyboard</span>
+<span class="font-['Space_Grotesk'] text-[10px] font-bold tracking-tighter mt-1">BÚSQUEDA</span>
+</a>
+</div>
+</nav>
+<!-- Background Decoration -->
+<div class="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+<div class="absolute -top-24 -left-24 w-96 h-96 bg-warning/5 rounded-full blur-[100px]"></div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full opacity-[0.02]" data-alt="Subtle dark carbon fiber technical texture for industrial background feel" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuClkatVpnrFVUw16zrvkvVutj5IegV2d-wM4UTAbtAJ1TVZLxGQfDGnt5yBll5L80vhgDmk-FQdyiOSoN1UJSY7BDNhZysU4SpX8bJKT6N3OJBhSaoQPYKA2eGf9YrCMHvXfXL0de6fSwxkPkqWPVtwIkSyD99ywTNiWn7tBKzYIQN9JmGwkd-A0CVZSCq4Za-k0mOQThLxzg0f4mEtLnNNgfPlxyQ8ueavrYIuuO-BLjg8TbuxfbqQb2kKG5nsFhi7Bmjegjf_Ji5f');"></div>
+</div>
+</body></html>

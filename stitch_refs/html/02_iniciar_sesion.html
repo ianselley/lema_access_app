@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NOMBRE DEL EVENTO - Iniciar Sesión</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;500;700&amp;family=Inter:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"tertiary-fixed-dim": "#d1c5ac", "on-secondary-container": "#002f30", background: "#171214", "surface-bright": "#3e3739", "on-tertiary-fixed": "#211b0b", "error-container": "#93000a", primary: "#ffb598", "on-error": "#690005", tertiary: "#d1c5ac", "on-tertiary-container": "#3d3624", "on-tertiary": "#37301e", "surface-container-high": "#2f282a", "on-background": "#ecdfe2", "on-surface": "#ecdfe2", "on-primary-fixed": "#360f00", secondary: "#61d8d8", outline: "#a48c82", "surface-container": "#241e20", "inverse-surface": "#ecdfe2", "tertiary-fixed": "#eee1c7", "on-secondary-fixed": "#002020", "secondary-fixed-dim": "#61d8d8", "primary-fixed": "#ffdbcd", "surface-dim": "#171214", "primary-fixed-dim": "#ffb598", "on-primary-container": "#642100", "surface-container-lowest": "#120d0f", "inverse-primary": "#9c441a", surface: "#171214", "on-primary": "#591d00", "secondary-fixed": "#80f5f5", "surface-container-highest": "#3a3335", "on-secondary-fixed-variant": "#004f50", "on-surface-variant": "#dcc1b7", "on-secondary": "#003737", "on-error-container": "#ffdad6", "surface-variant": "#3a3335", "on-tertiary-fixed-variant": "#4e4633", "secondary-container": "#0da1a1", "inverse-on-surface": "#352f31", "surface-container-low": "#201a1c", "primary-container": "#ef8354", "surface-tint": "#ffb598", "on-primary-fixed-variant": "#7d2d03", error: "#ffb4ab", "outline-variant": "#56433b", "tertiary-container": "#aa9f87"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, fontFamily: {headline: ["Epilogue"], body: ["Inter"], label: ["Inter"], display: "Epilogue"}}}};</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .kinetic-gradient {
+            background: linear-gradient(135deg, #c0c1ff 0%, #8083ff 100%);
+        }
+        .glass-panel {
+            background: rgba(58, 57, 57, 0.6);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body selection:bg-primary selection:text-on-primary-container">
+<!-- Top Navigation Bar (Shared Component) -->
+<!-- Suppression Logic: Suppressed for Transactional screen per "Semantic Shell Mandate" -->
+<main class="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden">
+<!-- Background Aesthetic Element: Tactical Pulse -->
+<div class="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden z-0">
+<div class="absolute -top-24 -left-24 w-96 h-96 bg-primary/5 blur-[120px] rounded-full"></div>
+<div class="absolute bottom-0 right-0 w-full h-1/2 bg-gradient-to-t from-surface-container-lowest to-transparent opacity-50"></div>
+</div>
+<div class="w-full max-w-[440px] z-10 flex flex-col gap-12">
+<!-- Brand Anchor -->
+<div class="flex flex-col gap-2">
+<span class="font-label text-primary tracking-[0.2em] text-xs font-bold">ACCESO OPERATIVO</span>
+<h1 class="text-4xl font-black font-headline tracking-tighter text-on-surface uppercase">NOMBRE DEL EVENTO</h1>
+</div>
+<!-- Login Form -->
+<div class="flex flex-col gap-8">
+<div class="flex flex-col gap-6">
+<!-- Email Input Group -->
+<div class="group flex flex-col gap-2">
+<label class="font-label text-[10px] font-bold tracking-widest text-on-surface-variant uppercase ml-1 group-focus-within:text-primary transition-colors duration-150" for="email">
+                            Correo electrónico
+                        </label>
+<div class="relative">
+<input class="w-full h-14 bg-surface-container-lowest border-none rounded-lg px-4 text-on-surface placeholder:text-outline-variant/50 focus:ring-1 focus:ring-primary focus:bg-surface-bright transition-all duration-150" id="email" placeholder="nombre@operacion.com" type="email"/>
+</div>
+</div>
+<!-- Password Input Group -->
+<div class="group flex flex-col gap-2">
+<label class="font-label text-[10px] font-bold tracking-widest text-on-surface-variant uppercase ml-1 group-focus-within:text-primary transition-colors duration-150" for="password">
+                            Contraseña
+                        </label>
+<div class="relative">
+<input class="w-full h-14 bg-surface-container-lowest border-none rounded-lg px-4 text-on-surface placeholder:text-outline-variant/50 focus:ring-1 focus:ring-primary focus:bg-surface-bright transition-all duration-150" id="password" placeholder="••••••••" type="password"/>
+<button class="absolute right-4 top-1/2 -translate-y-1/2 text-outline-variant hover:text-on-surface active:scale-90 transition-all" type="button">
+<span class="material-symbols-outlined" data-icon="visibility">visibility</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Primary CTA -->
+<div class="flex flex-col gap-4">
+<button class="kinetic-gradient h-14 w-full flex items-center justify-center gap-3 text-black font-headline font-bold rounded-lg shadow-[0_8px_32px_rgba(128,131,255,0.2)] active:scale-[0.97] transition-all duration-150 group">
+<span>Iniciar sesión</span>
+<span class="material-symbols-outlined text-xl transition-transform group-hover:translate-x-1" data-icon="login">login</span>
+</button>
+<a class="font-label text-[11px] text-on-surface-variant hover:text-primary text-center tracking-tight transition-colors" href="#">
+                        ¿Olvidaste tu contraseña?
+                    </a>
+</div>
+</div>
+<!-- Operational Status Footer -->
+<div class="pt-8 flex items-center justify-between border-t border-outline-variant/10">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+<span class="font-label text-[10px] text-on-surface-variant tracking-widest">SISTEMA ACTIVO</span>
+</div>
+<div class="flex gap-4">
+<span class="font-label text-[10px] text-primary font-bold">ES</span>
+<span class="font-label text-[10px] text-outline-variant font-bold">EN</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Visual Texture / Background Image -->
+<div class="fixed inset-0 -z-10 opacity-20 grayscale pointer-events-none">
+<img class="w-full h-full object-cover" data-alt="Technical background with subtle circuit patterns and dark metallic textures with dim blue ambient lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDBzV08cSj5Zg61L6U8_etsQEDAJVzjyhGWCvZgug0jLjEFAV4mwASQnZcigY20Oal-rpKEbL8eAxV9zY2LZ8OXklk_-JMotwzi90-h1l2jMpAApM2tFVKg90rXG1PUk_HcMXjAcbXrpjZ5uCbkXtWYpOlgCUnWcGq-Fw2f8jHnJJ9nEOlc2pV0weTgdSIe97G0Dt62ds7JUKChf8NUj6Dw-kvr6nZtEby-M7uDgJ3_OsEdc4T681ut9DDGpf40anERIB7KCftVFTku"/>
+</div>
+<!-- BottomNavBar (Shared Component) -->
+<!-- Suppression Logic: Suppressed for Transactional screen per "Semantic Shell Mandate" -->
+</body></html>

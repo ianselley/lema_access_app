@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&amp;family=Space_Grotesk:wght@300;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed-dim": "#ffb783",
+                        "on-secondary-container": "#b2b3f2",
+                        "background": "#131313",
+                        "surface-bright": "#3a3939",
+                        "on-tertiary-fixed": "#301400",
+                        "error-container": "#93000a",
+                        "primary": "#c0c1ff",
+                        "on-error": "#690005",
+                        "tertiary": "#ffb783",
+                        "on-tertiary-container": "#452000",
+                        "on-tertiary": "#4f2500",
+                        "surface-container-high": "#2a2a2a",
+                        "on-background": "#e5e2e1",
+                        "on-surface": "#e5e2e1",
+                        "on-primary-fixed": "#07006c",
+                        "secondary": "#c0c1ff",
+                        "outline": "#908fa0",
+                        "surface-container": "#201f1f",
+                        "inverse-surface": "#e5e2e1",
+                        "tertiary-fixed": "#ffdcc5",
+                        "on-secondary-fixed": "#13144a",
+                        "secondary-fixed-dim": "#c0c1ff",
+                        "primary-fixed": "#e1e0ff",
+                        "surface-dim": "#131313",
+                        "primary-fixed-dim": "#c0c1ff",
+                        "on-primary-container": "#0d0096",
+                        "surface-container-lowest": "#0e0e0e",
+                        "inverse-primary": "#494bd6",
+                        "surface": "#131313",
+                        "on-primary": "#1000a9",
+                        "secondary-fixed": "#e1e0ff",
+                        "surface-container-highest": "#353534",
+                        "on-secondary-fixed-variant": "#404178",
+                        "on-surface-variant": "#c7c4d7",
+                        "on-secondary": "#292a60",
+                        "on-error-container": "#ffdad6",
+                        "surface-variant": "#353534",
+                        "on-tertiary-fixed-variant": "#703700",
+                        "secondary-container": "#42447b",
+                        "inverse-on-surface": "#313030",
+                        "surface-container-low": "#1c1b1b",
+                        "primary-container": "#8083ff",
+                        "surface-tint": "#c0c1ff",
+                        "on-primary-fixed-variant": "#2f2ebe",
+                        "error": "#ffb4ab",
+                        "outline-variant": "#464554",
+                        "tertiary-container": "#d97721"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .kinetic-gradient {
+            background: linear-gradient(135deg, #c0c1ff 0%, #8083ff 100%);
+        }
+        .glass-panel {
+            background: rgba(58, 57, 57, 0.6);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body selection:bg-primary selection:text-on-primary">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#1c1b1b] flex items-center justify-between px-6 h-16 w-full">
+<div class="flex items-center gap-4">
+<button class="active:scale-95 transition-transform duration-150 text-[#e5e2e1] hover:bg-[#353534] p-2 rounded-lg">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-lg font-black text-[#e5e2e1] font-headline">NOMBRE DEL EVENTO</h1>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-['Inter'] uppercase tracking-widest text-xs font-bold text-indigo-500">SIN CONEXIÓN</span>
+<button class="active:scale-95 transition-transform duration-150 text-[#e5e2e1] hover:bg-[#353534] p-2 rounded-lg">
+<span class="material-symbols-outlined">sync</span>
+</button>
+</div>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-lg mx-auto min-h-screen flex flex-col justify-center">
+<!-- Error Core Branding / Visual -->
+<div class="relative mb-12 flex justify-center">
+<div class="absolute inset-0 bg-tertiary-container/20 blur-3xl rounded-full"></div>
+<div class="relative w-48 h-48 flex items-center justify-center border-2 border-dashed border-tertiary-container/30 rounded-xl">
+<div class="flex flex-col items-center">
+<span class="material-symbols-outlined text-tertiary-container text-7xl mb-2" style="font-variation-settings: 'FILL' 1;">wifi_off</span>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary-container animate-pulse"></div>
+<span class="font-label text-[10px] tracking-widest text-tertiary-container font-bold uppercase">Buscando señal</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Semantic Messaging -->
+<div class="text-center mb-10">
+<h2 class="font-headline text-5xl font-black tracking-tighter mb-4 text-on-surface leading-none uppercase">
+                SIN CONEXIÓN
+            </h2>
+<div class="bg-surface-container-low p-4 rounded-lg border-l-4 border-tertiary-container">
+<p class="font-label text-sm text-tertiary-container font-bold uppercase mb-1">Error de red detectado</p>
+<p class="text-on-surface-variant text-base leading-tight">
+                    No se puede validar en este momento. Reintentando...
+                </p>
+</div>
+</div>
+<!-- Instruction / Status Detail -->
+<div class="bg-surface-container-high rounded-lg p-6 mb-8 border border-outline-variant/15">
+<div class="flex items-start gap-4">
+<div class="bg-surface-bright p-3 rounded-lg">
+<span class="material-symbols-outlined text-primary">info</span>
+</div>
+<div>
+<p class="font-label text-[10px] text-primary font-bold tracking-widest uppercase mb-1">Instrucción Operativa</p>
+<p class="text-on-surface text-lg font-medium leading-snug">Mantenlo en espera o intenta de nuevo</p>
+</div>
+</div>
+</div>
+<!-- Tactical Actions -->
+<div class="grid grid-cols-1 gap-4">
+<button class="kinetic-gradient h-14 rounded-lg flex items-center justify-center gap-3 active:scale-[0.97] transition-all duration-100 group">
+<span class="material-symbols-outlined text-black font-bold">refresh</span>
+<span class="font-headline text-black font-extrabold tracking-tight uppercase">REINTENTAR AHORA</span>
+</button>
+<button class="bg-surface-container-high h-14 rounded-lg flex items-center justify-center active:scale-[0.97] transition-all duration-100 hover:bg-surface-bright border border-outline-variant/10">
+<span class="font-headline text-on-surface font-bold tracking-tight uppercase">CANCELAR</span>
+</button>
+</div>
+<!-- Technical Latency Map Placeholder -->
+<div class="mt-12 opacity-30 grayscale pointer-events-none">
+<div class="h-32 bg-surface-container-lowest rounded-xl flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="abstract tech map with digital data points and network lines in a dark industrial blue and grey aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5uKT8lzdW7Hiv4LV_ouIfZN8QBp5j9PcHNQW8J4rqNvybMPEboYpg9PnpJoSiOTeymGdQRUT0JD87W0fHdIRcfgLULVq11-wAc84ersGUV8LCowBoI9BQ8HZA4SnwHverpmv1yPJcxR_iCNXE94VymsI6wO7FUkugNdFX99ciEZoPDFjoYedJf9CK01rU15ajQNdh0e1WnkbuIFcobte1H5PuKydLTrszgneR7QNKmuRJ9xMQJnwCvGNMUdQR5sx0Dk3QYL4k9l8q"/>
+</div>
+<p class="text-center font-label text-[10px] mt-2 tracking-widest text-outline uppercase">Módulo de red fuera de línea</p>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-lg bg-[#0A0A0A]/80 backdrop-blur-xl border-t border-[#c0c1ff]/15 flex justify-around items-center w-full px-4 pb-6 pt-4 shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
+<div class="flex flex-col items-center justify-center bg-gradient-to-br from-[#c0c1ff] to-[#8083ff] text-black rounded-lg py-3 px-8 scale-105 active:scale-97 transition-all duration-100 cursor-pointer">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">qr_code_scanner</span>
+<span class="font-['Space_Grotesk'] text-[10px] font-bold tracking-tighter uppercase">ESCANEAR</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#e5e2e1] py-3 px-8 hover:text-indigo-300 active:scale-97 transition-all duration-100 cursor-pointer">
+<span class="material-symbols-outlined">keyboard</span>
+<span class="font-['Space_Grotesk'] text-[10px] font-bold tracking-tighter uppercase">BÚSQUEDA</span>
+</div>
+</nav>
+</body></html>

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&amp;family=Space_Grotesk:wght@500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-fixed-dim": "#ffb783",
+                    "on-secondary-container": "#b2b3f2",
+                    "background": "#131313",
+                    "surface-bright": "#3a3939",
+                    "on-tertiary-fixed": "#301400",
+                    "error-container": "#93000a",
+                    "primary": "#c0c1ff",
+                    "on-error": "#690005",
+                    "tertiary": "#ffb783",
+                    "on-tertiary-container": "#452000",
+                    "on-tertiary": "#4f2500",
+                    "surface-container-high": "#2a2a2a",
+                    "on-background": "#e5e2e1",
+                    "on-surface": "#e5e2e1",
+                    "on-primary-fixed": "#07006c",
+                    "secondary": "#c0c1ff",
+                    "outline": "#908fa0",
+                    "surface-container": "#201f1f",
+                    "inverse-surface": "#e5e2e1",
+                    "tertiary-fixed": "#ffdcc5",
+                    "on-secondary-fixed": "#13144a",
+                    "secondary-fixed-dim": "#c0c1ff",
+                    "primary-fixed": "#e1e0ff",
+                    "surface-dim": "#131313",
+                    "primary-fixed-dim": "#c0c1ff",
+                    "on-primary-container": "#0d0096",
+                    "surface-container-lowest": "#0e0e0e",
+                    "inverse-primary": "#494bd6",
+                    "surface": "#131313",
+                    "on-primary": "#1000a9",
+                    "secondary-fixed": "#e1e0ff",
+                    "surface-container-highest": "#353534",
+                    "on-secondary-fixed-variant": "#404178",
+                    "on-surface-variant": "#c7c4d7",
+                    "on-secondary": "#292a60",
+                    "on-error-container": "#ffdad6",
+                    "surface-variant": "#353534",
+                    "on-tertiary-fixed-variant": "#703700",
+                    "secondary-container": "#42447b",
+                    "inverse-on-surface": "#313030",
+                    "surface-container-low": "#1c1b1b",
+                    "primary-container": "#8083ff",
+                    "surface-tint": "#c0c1ff",
+                    "on-primary-fixed-variant": "#2f2ebe",
+                    "error": "#ffb4ab",
+                    "outline-variant": "#464554",
+                    "tertiary-container": "#d97721"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        .gradient-primary {
+            background: linear-gradient(135deg, #c0c1ff 0%, #8083ff 100%);
+        }
+        .glass-panel {
+            background: rgba(58, 57, 57, 0.6);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="bg-[#0A0A0A] fixed top-0 w-full z-50 flex items-center justify-between px-6 h-16 w-full">
+<div class="flex items-center gap-4">
+<button class="active:scale-95 transition-transform duration-150 hover:bg-[#353534] p-2 rounded-lg">
+<span class="material-symbols-outlined text-indigo-500">arrow_back</span>
+</button>
+<h1 class="font-['Inter'] uppercase tracking-widest text-xs font-bold text-[#e5e2e1]">NOMBRE DEL EVENTO</h1>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-lg font-black text-[#e5e2e1]">LOGOTIPO</span>
+<button class="active:scale-95 transition-transform duration-150 hover:bg-[#353534] p-2 rounded-lg">
+<span class="material-symbols-outlined text-indigo-500">sync</span>
+</button>
+</div>
+</header>
+<main class="flex-1 mt-16 mb-24 px-6 py-8 max-w-2xl mx-auto w-full">
+<!-- Search Results Header -->
+<div class="mb-8">
+<div class="flex items-center gap-2 mb-2">
+<div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+<span class="font-label text-[10px] font-bold tracking-tighter uppercase text-outline">Búsqueda Operacional</span>
+</div>
+<h2 class="text-3xl font-black tracking-tight text-on-background">Resultados para 'Juan'</h2>
+<div class="mt-4 flex gap-4 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+<span>4 ENCONTRADOS</span>
+<span class="text-outline-variant">|</span>
+<span>FILTRO: TODOS</span>
+</div>
+</div>
+<!-- Results List -->
+<div class="space-y-3">
+<!-- Result Card 1: Validated -->
+<div class="group relative bg-surface-container-low hover:bg-surface-container-highest transition-colors cursor-pointer p-5 flex items-center justify-between active:scale-[0.98] duration-150 overflow-hidden">
+<!-- Status Stripe -->
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-[#22C55E]"></div>
+<div class="flex flex-col gap-1">
+<span class="font-label text-[10px] font-bold text-outline uppercase tracking-tighter">#8921-X</span>
+<h3 class="text-2xl font-black leading-none text-on-surface">JUAN PÉREZ GARCÍA</h3>
+<p class="text-sm font-label text-on-surface-variant uppercase tracking-wide">Acceso General • VIP Lounge</p>
+</div>
+<div class="flex flex-col items-end gap-2">
+<span class="px-3 py-1 bg-[#22C55E]/10 text-[#22C55E] font-label text-[10px] font-bold tracking-widest uppercase rounded-sm">Validado</span>
+<span class="material-symbols-outlined text-on-surface-variant opacity-20 group-hover:opacity-100 transition-opacity">chevron_right</span>
+</div>
+</div>
+<!-- Result Card 2: Pending -->
+<div class="group relative bg-surface-container-low hover:bg-surface-container-highest transition-colors cursor-pointer p-5 flex items-center justify-between active:scale-[0.98] duration-150 overflow-hidden">
+<!-- Status Stripe -->
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-outline-variant"></div>
+<div class="flex flex-col gap-1">
+<span class="font-label text-[10px] font-bold text-outline uppercase tracking-tighter">#8944-B</span>
+<h3 class="text-2xl font-black leading-none text-on-surface">JUAN SEBASTIÁN IBARRA</h3>
+<p class="text-sm font-label text-on-surface-variant uppercase tracking-wide">Pase de Prensa • Stand A12</p>
+</div>
+<div class="flex flex-col items-end gap-2">
+<span class="px-3 py-1 bg-surface-container-high text-on-surface-variant font-label text-[10px] font-bold tracking-widest uppercase rounded-sm">Pendiente</span>
+<span class="material-symbols-outlined text-on-surface-variant opacity-20 group-hover:opacity-100 transition-opacity">chevron_right</span>
+</div>
+</div>
+<!-- Result Card 3: Pending -->
+<div class="group relative bg-surface-container-low hover:bg-surface-container-highest transition-colors cursor-pointer p-5 flex items-center justify-between active:scale-[0.98] duration-150 overflow-hidden">
+<!-- Status Stripe -->
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-outline-variant"></div>
+<div class="flex flex-col gap-1">
+<span class="font-label text-[10px] font-bold text-outline uppercase tracking-tighter">#9012-K</span>
+<h3 class="text-2xl font-black leading-none text-on-surface">JUAN MARTÍNEZ RUIZ</h3>
+<p class="text-sm font-label text-on-surface-variant uppercase tracking-wide">Visitante • Zona Norte</p>
+</div>
+<div class="flex flex-col items-end gap-2">
+<span class="px-3 py-1 bg-surface-container-high text-on-surface-variant font-label text-[10px] font-bold tracking-widest uppercase rounded-sm">Pendiente</span>
+<span class="material-symbols-outlined text-on-surface-variant opacity-20 group-hover:opacity-100 transition-opacity">chevron_right</span>
+</div>
+</div>
+<!-- Result Card 4: Validated -->
+<div class="group relative bg-surface-container-low hover:bg-surface-container-highest transition-colors cursor-pointer p-5 flex items-center justify-between active:scale-[0.98] duration-150 overflow-hidden">
+<!-- Status Stripe -->
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-[#22C55E]"></div>
+<div class="flex flex-col gap-1">
+<span class="font-label text-[10px] font-bold text-outline uppercase tracking-tighter">#7723-L</span>
+<h3 class="text-2xl font-black leading-none text-on-surface">JUANA DE LA CRUZ</h3>
+<p class="text-sm font-label text-on-surface-variant uppercase tracking-wide">Staff • Backstage</p>
+</div>
+<div class="flex flex-col items-end gap-2">
+<span class="px-3 py-1 bg-[#22C55E]/10 text-[#22C55E] font-label text-[10px] font-bold tracking-widest uppercase rounded-sm">Validado</span>
+<span class="material-symbols-outlined text-on-surface-variant opacity-20 group-hover:opacity-100 transition-opacity">chevron_right</span>
+</div>
+</div>
+</div>
+<!-- Empty State Suggestion (Optional context) -->
+<div class="mt-12 p-8 border border-dashed border-outline-variant/30 rounded-lg flex flex-col items-center justify-center text-center">
+<span class="material-symbols-outlined text-4xl text-outline-variant mb-4">search_off</span>
+<p class="text-sm text-on-surface-variant font-label uppercase tracking-widest">¿No encuentras lo que buscas?</p>
+<button class="mt-4 text-xs font-bold text-primary font-label uppercase tracking-[0.2em] hover:text-primary-container transition-colors">Intentar búsqueda avanzada</button>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-lg bg-[#0A0A0A]/80 backdrop-blur-xl border-t border-[#c0c1ff]/15 shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
+<div class="flex justify-around items-center w-full px-4 pb-6 pt-4">
+<!-- ESCANEAR (Inactive) -->
+<button class="flex flex-col items-center justify-center text-[#e5e2e1] py-3 px-8 active:scale-97 transition-all duration-100 hover:text-indigo-300">
+<span class="material-symbols-outlined mb-1">qr_code_scanner</span>
+<span class="font-['Space_Grotesk'] text-[10px] font-bold tracking-tighter">ESCANEAR</span>
+</button>
+<!-- BÚSQUEDA (Active) -->
+<button class="flex flex-col items-center justify-center bg-gradient-to-br from-[#c0c1ff] to-[#8083ff] text-black rounded-lg py-3 px-8 scale-105 active:scale-97 transition-all duration-100">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">keyboard</span>
+<span class="font-['Space_Grotesk'] text-[10px] font-bold tracking-tighter">BÚSQUEDA</span>
+</button>
+</div>
+</nav>
+</body></html>

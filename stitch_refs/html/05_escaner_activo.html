@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tactical Scanner - NOMBRE DEL EVENTO</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&amp;family=Space_Grotesk:wght@500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary-fixed-dim": "#ffb783",
+                      "on-secondary-container": "#b2b3f2",
+                      "background": "#131313",
+                      "surface-bright": "#3a3939",
+                      "on-tertiary-fixed": "#301400",
+                      "error-container": "#93000a",
+                      "primary": "#c0c1ff",
+                      "on-error": "#690005",
+                      "tertiary": "#ffb783",
+                      "on-tertiary-container": "#452000",
+                      "on-tertiary": "#4f2500",
+                      "surface-container-high": "#2a2a2a",
+                      "on-background": "#e5e2e1",
+                      "on-surface": "#e5e2e1",
+                      "on-primary-fixed": "#07006c",
+                      "secondary": "#c0c1ff",
+                      "outline": "#908fa0",
+                      "surface-container": "#201f1f",
+                      "inverse-surface": "#e5e2e1",
+                      "tertiary-fixed": "#ffdcc5",
+                      "on-secondary-fixed": "#13144a",
+                      "secondary-fixed-dim": "#c0c1ff",
+                      "primary-fixed": "#e1e0ff",
+                      "surface-dim": "#131313",
+                      "primary-fixed-dim": "#c0c1ff",
+                      "on-primary-container": "#0d0096",
+                      "surface-container-lowest": "#0e0e0e",
+                      "inverse-primary": "#494bd6",
+                      "surface": "#131313",
+                      "on-primary": "#1000a9",
+                      "secondary-fixed": "#e1e0ff",
+                      "surface-container-highest": "#353534",
+                      "on-secondary-fixed-variant": "#404178",
+                      "on-surface-variant": "#c7c4d7",
+                      "on-secondary": "#292a60",
+                      "on-error-container": "#ffdad6",
+                      "surface-variant": "#353534",
+                      "on-tertiary-fixed-variant": "#703700",
+                      "secondary-container": "#42447b",
+                      "inverse-on-surface": "#313030",
+                      "surface-container-low": "#1c1b1b",
+                      "primary-container": "#8083ff",
+                      "surface-tint": "#c0c1ff",
+                      "on-primary-fixed-variant": "#2f2ebe",
+                      "error": "#ffb4ab",
+                      "outline-variant": "#464554",
+                      "tertiary-container": "#d97721"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "fontFamily": {
+                      "headline": ["Inter"],
+                      "body": ["Inter"],
+                      "label": ["Space_Grotesk"]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .scan-frame-gradient {
+            background: linear-gradient(135deg, #c0c1ff 0%, #8083ff 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body overflow-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#0A0A0A] flex items-center justify-between px-6 h-16 w-full">
+<div class="flex items-center gap-4">
+<button class="active:scale-95 transition-transform duration-150 text-[#e5e2e1]">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<span class="font-['Inter'] uppercase tracking-widest text-xs font-bold text-[#e5e2e1]">NOMBRE DEL EVENTO</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="active:scale-95 transition-transform duration-150 text-[#e5e2e1] p-2 hover:bg-[#353534] rounded-lg">
+<span class="material-symbols-outlined" data-icon="flash_on">flash_on</span>
+</button>
+<button class="active:scale-95 transition-transform duration-150 text-[#e5e2e1] p-2 hover:bg-[#353534] rounded-lg">
+<span class="material-symbols-outlined" data-icon="sync">sync</span>
+</button>
+</div>
+</header>
+<!-- Main Content (Scanner Viewport) -->
+<main class="relative h-screen w-full flex flex-col items-center justify-center pt-16 pb-24 overflow-hidden">
+<!-- Camera Background Simulation -->
+<div class="absolute inset-0 z-0">
+<img class="w-full h-full object-cover brightness-[0.4] grayscale-[0.2]" data-alt="Blurred viewpoint of a dark concert venue with colorful stage lights and crowd silhouettes in high contrast" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2M2xuFMwhUWE90dDME-TkOT_VbWZaWlZR9RLjJKuvIvrblyWX2tDMYlMe7pKdHNFu0JB-7E1DW7A5w3g_nffMYgzGyDBaFqP1n0Em_lYbJmuL_ZQ1O-oYnj9MpVHBOGST41WvAkQtqtOwDs3Fp9Q5UJGmF2HcqTVNz9zXD7YSZxTuUbI5vliLP9RfGolLpZQ6yPaS-3-ov5PSVVAkc986KoiU1M_f9CZdxrKXFv7lcaUck-4ODkFobQZ2CdeDJPmqHf4M_wAKKg0D"/>
+</div>
+<!-- Scanning HUD -->
+<div class="relative z-10 w-full max-w-md px-8 flex flex-col items-center">
+<!-- Pulse Live Indicator -->
+<div class="flex items-center gap-2 mb-8 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-outline-variant/15">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+<span class="font-label text-[10px] font-bold tracking-widest text-primary uppercase">Escaneando...</span>
+</div>
+<!-- Scan Frame -->
+<div class="relative aspect-square w-full border-2 border-transparent group">
+<!-- Corners (Kinetic Monolith Style) -->
+<div class="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-primary rounded-tl-lg"></div>
+<div class="absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 border-primary rounded-tr-lg"></div>
+<div class="absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 border-primary rounded-bl-lg"></div>
+<div class="absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 border-primary rounded-br-lg"></div>
+<!-- Scanning Laser Line -->
+<div class="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50 top-1/2 -translate-y-1/2"></div>
+<!-- Viewfinder Content -->
+<div class="w-full h-full flex items-center justify-center opacity-20 group-hover:opacity-40 transition-opacity">
+<span class="material-symbols-outlined text-8xl text-on-surface" data-icon="qr_code_2">qr_code_2</span>
+</div>
+</div>
+<!-- Instructions -->
+<div class="mt-12 text-center">
+<p class="font-body text-on-surface-variant text-sm font-medium tracking-wide">
+                    Coloca el código QR dentro del recuadro
+                </p>
+<div class="mt-8">
+<button class="h-14 px-8 flex items-center gap-3 bg-surface-container-high hover:bg-surface-container-highest active:scale-95 transition-all duration-100 rounded-xl border border-outline-variant/10">
+<span class="material-symbols-outlined text-primary" data-icon="edit_square">edit_square</span>
+<span class="font-label text-sm font-bold tracking-tight text-on-surface">Ingresar código manual</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Tonal Overlays for Operational Focus -->
+<div class="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-[#0A0A0A] to-transparent pointer-events-none"></div>
+<div class="absolute bottom-0 left-0 w-full h-64 bg-gradient-to-t from-[#0A0A0A] to-transparent pointer-events-none"></div>
+</main>
+<!-- Operational State: Camera Permission Warning (Hidden by default, shown as fallback) -->
+<!-- 
+    <div class="fixed inset-0 z-[60] bg-background flex flex-col items-center justify-center px-12 text-center">
+        <span class="material-symbols-outlined text-error text-6xl mb-6" data-icon="no_photography">no_photography</span>
+        <h2 class="font-headline font-black text-xl mb-2 text-on-surface">Permiso de cámara denegado</h2>
+        <p class="font-body text-on-surface-variant text-sm mb-8">El escáner requiere acceso a la cámara para validar entradas.</p>
+        <button class="h-14 w-full max-w-xs scan-frame-gradient text-black font-bold rounded-lg active:scale-95 transition-all">
+            CONFIGURACIÓN
+        </button>
+    </div>
+    -->
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 bg-[#0A0A0A]/80 backdrop-blur-xl border-t border-[#c0c1ff]/15 rounded-t-lg shadow-[0_-8px_32px_rgba(0,0,0,0.5)]">
+<div class="flex justify-around items-center w-full px-4 pb-6 pt-4">
+<!-- Active Navigation: ESCANEAR -->
+<div class="flex flex-col items-center justify-center bg-gradient-to-br from-[#c0c1ff] to-[#8083ff] text-black rounded-lg py-3 px-8 scale-105 active:scale-97 transition-all duration-100 cursor-pointer">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner" style="font-variation-settings: 'FILL' 1;">qr_code_scanner</span>
+<span class="font-['Space_Grotesk'] text-[10px] font-bold tracking-tighter mt-1">ESCANEAR</span>
+</div>
+<!-- Inactive Navigation: BÚSQUEDA -->
+<div class="flex flex-col items-center justify-center text-[#e5e2e1] py-3 px-8 hover:text-indigo-300 transition-all duration-100 cursor-pointer">
+<span class="material-symbols-outlined" data-icon="keyboard">keyboard</span>
+<span class="font-['Space_Grotesk'] text-[10px] font-bold tracking-tighter mt-1">BÚSQUEDA</span>
+</div>
+</div>
+</nav>
+</body></html>
