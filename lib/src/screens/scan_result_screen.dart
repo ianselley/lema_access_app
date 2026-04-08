@@ -1,0 +1,311 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../access/scan/access_scan_models.dart';
+import '../access/scan/access_scan_providers.dart';
+import '../theme/app_theme.dart';
+import '../widgets/lema_components.dart';
+import '../widgets/lema_scaffold.dart';
+
+class ScanResultScreen extends ConsumerWidget {
+  const ScanResultScreen({
+    super.key,
+    this.onContinueScanning,
+    this.onManualEntry,
+    this.onManualSearch,
+  });
+
+  final VoidCallback? onContinueScanning;
+  final VoidCallback? onManualEntry;
+  final VoidCallback? onManualSearch;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    final state = ref.watch(accessScanControllerProvider);
+
+    if (state case AccessScanSuccess(:final outcome)) {
+      final variant = accessScanUiVariantForResultCode(outcome.resultCode);
+      final accent = switch (variant) {
+        AccessScanUiVariant.valid => AppColors.success,
+        AccessScanUiVariant.used => AppColors.warning,
+        AccessScanUiVariant.invalid => AppColors.error,
+        AccessScanUiVariant.notFound => const Color(0xFF9CA3AF),
+        AccessScanUiVariant.networkError => AppColors.error,
+      };
+
+      return LemaScaffold(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+        body: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.primaryGradient,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.qr_code_scanner_rounded,
+                      color: AppColors.black,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Resultado de escaneo',
+                          style: textTheme.labelSmall?.copyWith(
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          accessScanHeadlineForResultCode(outcome.resultCode),
+                          style: textTheme.titleLarge,
+                        ),
+                      ],
+                    ),
+                  ),
+                  LemaStatusPill(
+                    label: outcome.resultCode,
+                    color: accent,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              LemaStatusStripCard(
+                accent: accent,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      accessScanHeadlineForResultCode(outcome.resultCode),
+                      style: textTheme.displayMedium?.copyWith(color: accent),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      accessScanBodyForResultCode(outcome.resultCode),
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: AppColors.onSurfaceMuted,
+                      ),
+                    ),
+                    if (outcome.reasonCode != null) ...[
+                      const SizedBox(height: 14),
+                      LemaTag(
+                        label: outcome.reasonCode!,
+                        color: AppColors.surfaceHigh,
+                        textColor: accent,
+                        icon: Icons.info_outline,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (outcome.ticket != null) ...[
+                const SizedBox(height: 16),
+                _TicketCard(ticket: outcome.ticket!, accent: accent),
+              ],
+              const SizedBox(height: 16),
+              LemaPanel(
+                color: AppColors.surfaceLow,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Lectura registrada',
+                      style: textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 10),
+                    _InfoRow(
+                      label: 'Fuente',
+                      value: outcome.source.name,
+                    ),
+                    const SizedBox(height: 8),
+                    _InfoRow(
+                      label: 'Entrada',
+                      value: outcome.rawInput,
+                    ),
+                    if (outcome.scanLog?.createdAt != null) ...[
+                      const SizedBox(height: 8),
+                      _InfoRow(
+                        label: 'Momento',
+                        value: _formatDateTime(outcome.scanLog!.createdAt!),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              LemaPrimaryButton(
+                label: 'Volver al escáner',
+                icon: Icons.qr_code_scanner,
+                onPressed: () {
+                  ref.read(accessScanControllerProvider.notifier).reset();
+                  onContinueScanning?.call();
+                },
+              ),
+              if (outcome.resultCode == 'not_found') ...[
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: onManualSearch,
+                  icon: const Icon(Icons.search),
+                  label: const Text('Buscar manualmente'),
+                ),
+              ] else if (outcome.resultCode == 'temporary_error') ...[
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: onManualEntry,
+                  icon: const Icon(Icons.keyboard_alt_outlined),
+                  label: const Text('Probar entrada manual'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (state case AccessScanFailure(:final failure)) {
+      return LemaScaffold(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+        body: Center(
+          child: LemaPanel(
+            color: AppColors.surfaceLow,
+            borderColor: AppColors.error.withValues(alpha: 0.24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('No se pudo completar la operación', style: textTheme.titleLarge),
+                const SizedBox(height: 8),
+                Text(
+                  failure.code,
+                  style: textTheme.labelSmall?.copyWith(color: AppColors.error),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  failure.message,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurfaceMuted,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                LemaPrimaryButton(
+                  label: 'Volver al escáner',
+                  icon: Icons.arrow_back,
+                  onPressed: () {
+                    ref.read(accessScanControllerProvider.notifier).reset();
+                    onContinueScanning?.call();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return LemaScaffold(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+      body: Center(
+        child: LemaPanel(
+          color: AppColors.surfaceLow,
+          child: Text(
+            'Aún no hay un resultado de escaneo disponible.',
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurfaceMuted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDateTime(DateTime value) {
+    final local = value.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$day/$month $hour:$minute';
+  }
+}
+
+class _TicketCard extends StatelessWidget {
+  const _TicketCard({
+    required this.ticket,
+    required this.accent,
+  });
+
+  final AccessTicketSnapshot ticket;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return LemaPanel(
+      color: AppColors.surfaceHighest,
+      borderColor: accent.withValues(alpha: 0.24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Detalle del ticket', style: textTheme.titleLarge),
+          const SizedBox(height: 12),
+          _InfoRow(label: 'Asistente', value: ticket.displayName),
+          const SizedBox(height: 8),
+          _InfoRow(label: 'Tipo', value: ticket.ticketTypeLabel),
+          const SizedBox(height: 8),
+          _InfoRow(label: 'Código', value: ticket.code),
+          const SizedBox(height: 8),
+          _InfoRow(label: 'Estado', value: ticket.statusLabel),
+          const SizedBox(height: 8),
+          _InfoRow(label: 'Pedido', value: ticket.orderLabel),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 88,
+          child: Text(
+            label.toUpperCase(),
+            style: textTheme.labelSmall?.copyWith(
+              color: AppColors.onSurfaceMuted,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(value, style: textTheme.bodyMedium),
+        ),
+      ],
+    );
+  }
+}

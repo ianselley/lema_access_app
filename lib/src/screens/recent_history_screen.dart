@@ -1,169 +1,143 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/demo_models.dart';
+import '../access/core/access_rpc_exception.dart';
+import '../access/history/access_history_controller.dart';
+import '../access/history/access_history_models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
 
-class RecentHistoryScreen extends StatelessWidget {
-  const RecentHistoryScreen({super.key, this.onOpenTicketDetail});
+class RecentHistoryScreen extends ConsumerStatefulWidget {
+  const RecentHistoryScreen({super.key, this.eventId, this.onOpenTicketDetail});
 
+  final String? eventId;
   final VoidCallback? onOpenTicketDetail;
 
   @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+  ConsumerState<RecentHistoryScreen> createState() =>
+      _RecentHistoryScreenState();
+}
 
-    const recentValidations = <_HistoryItem>[
-      _HistoryItem(
-        name: 'Alejandro García',
-        ticketType: 'VIP Access',
-        code: '#LEMA-8932',
-        timeAgo: '2 min',
-        state: TicketState.valid,
-      ),
-      _HistoryItem(
-        name: 'María Fernández',
-        ticketType: 'Entrada general',
-        code: '#LEMA-4831',
-        timeAgo: '7 min',
-        state: TicketState.used,
-      ),
-      _HistoryItem(
-        name: 'Lucía Torres',
-        ticketType: 'General Entry',
-        code: '#LEMA-7719',
-        timeAgo: '11 min',
-        state: TicketState.invalid,
-      ),
-      _HistoryItem(
-        name: 'Javier Ortiz',
-        ticketType: 'Guest List',
-        code: '#LEMA-5520',
-        timeAgo: '19 min',
-        state: TicketState.notFound,
-      ),
-      _HistoryItem(
-        name: 'Elena Rivas',
-        ticketType: 'General Entry',
-        code: '#LEMA-2104',
-        timeAgo: '27 min',
-        state: TicketState.networkError,
-      ),
-      _HistoryItem(
-        name: 'Marco Beltrán',
-        ticketType: 'VIP Access',
-        code: '#LEMA-6628',
-        timeAgo: '33 min',
-        state: TicketState.valid,
-      ),
-    ];
+class _RecentHistoryScreenState extends ConsumerState<RecentHistoryScreen> {
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController()..addListener(_handleScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_handleScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+
+    if (_scrollController.position.extentAfter > 280) {
+      return;
+    }
+
+    ref
+        .read(accessHistoryControllerProvider(widget.eventId).notifier)
+        .loadMore();
+  }
+
+  Future<void> _refresh() async {
+    try {
+      final _ = await ref.refresh(
+        accessHistoryControllerProvider(widget.eventId).future,
+      );
+    } catch (_) {
+      // The provider already surfaces the error state.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final historyAsync = ref.watch(
+      accessHistoryControllerProvider(widget.eventId),
+    );
+    final textTheme = Theme.of(context).textTheme;
 
     return LemaScaffold(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _Header(onOpenTicketDetail: onOpenTicketDetail),
-            const SizedBox(height: 20),
-            Row(
-              children: const [
-                Expanded(
-                  child: LemaMetricPanel(
-                    label: 'Validados hoy',
-                    value: '342',
-                    accent: AppColors.primary,
-                  ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: LemaMetricPanel(
-                    label: 'Usados',
-                    value: '18',
-                    accent: AppColors.warning,
-                  ),
-                ),
-              ],
+      body: historyAsync.when(
+        loading: () => _LoadingState(textTheme: textTheme),
+        error: (error, stackTrace) =>
+            _ErrorState(error: error, onRetry: _refresh),
+        data: (state) => RefreshIndicator(
+          onRefresh: _refresh,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
             ),
-            const SizedBox(height: 12),
-            const LemaMetricPanel(
-              label: 'Incidencias registradas',
-              value: '3',
-              accent: AppColors.error,
-            ),
-            const SizedBox(height: 22),
-            LemaSectionHeading(
-              kicker: 'Operación',
-              title: 'Historial reciente',
-              trailing: LemaTag(
-                label: 'Actualizado',
-                color: AppColors.surfaceHigh,
-                textColor: AppColors.onSurface,
-                icon: Icons.schedule,
-              ),
-            ),
-            const SizedBox(height: 14),
-            LemaPanel(
-              color: AppColors.surfaceLow,
-              borderColor: AppColors.outlineVariant.withValues(alpha: 0.18),
-              child: Row(
-                children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: const BoxDecoration(
-                      color: AppColors.success,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'La fila principal abre el detalle del ticket para revisión manual.',
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: AppColors.onSurfaceMuted,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            Column(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (var index = 0; index < recentValidations.length; index++)
-                  Padding(
-                    padding: EdgeInsets.only(
-                      bottom: index == recentValidations.length - 1 ? 0 : 12,
-                    ),
-                    child: _HistoryCard(
-                      item: recentValidations[index],
-                      onTap: index == 0 ? onOpenTicketDetail : null,
-                    ),
+                _Header(
+                  eventId: widget.eventId,
+                  totalCount: state.totalCount,
+                  summary: state.summary,
+                  onRefresh: _refresh,
+                ),
+                const SizedBox(height: 22),
+                if (state.items.isEmpty)
+                  _EmptyHistoryState(
+                    eventId: widget.eventId,
+                    onRefresh: _refresh,
+                  )
+                else
+                  Column(
+                    children: [
+                      for (var index = 0; index < state.items.length; index++)
+                        Padding(
+                          padding: EdgeInsets.only(
+                            bottom: index == state.items.length - 1 ? 0 : 10,
+                          ),
+                          child: _HistoryCard(
+                            item: state.items[index],
+                            onTap: state.items[index].ticket != null
+                                ? widget.onOpenTicketDetail
+                                : null,
+                          ),
+                        ),
+                    ],
                   ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            LemaPanel(
-              color: AppColors.backgroundAlt,
-              child: Row(
-                children: [
-                  const Icon(Icons.insights_outlined, color: AppColors.primary),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Mantén este historial como punto de control para validar picos de tráfico y revisar incidencias sin salir del flujo.',
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: AppColors.onSurfaceMuted,
-                      ),
+                const SizedBox(height: 16),
+                if (state.hasMore)
+                  _LoadMoreButton(
+                    isLoadingMore: state.isLoadingMore,
+                    onPressed: ref
+                        .read(
+                          accessHistoryControllerProvider(
+                            widget.eventId,
+                          ).notifier,
+                        )
+                        .loadMore,
+                  ),
+                if (state.isLoadingMore) ...[
+                  const SizedBox(height: 12),
+                  const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   ),
                 ],
-              ),
+                const OperatorShellBottomSpacer(),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -171,9 +145,17 @@ class RecentHistoryScreen extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.onOpenTicketDetail});
+  const _Header({
+    required this.eventId,
+    required this.totalCount,
+    required this.summary,
+    required this.onRefresh,
+  });
 
-  final VoidCallback? onOpenTicketDetail;
+  final String? eventId;
+  final int totalCount;
+  final AccessHistorySummary summary;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -194,34 +176,38 @@ class _Header extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'HISTORIAL RECIENTE',
+                      'HISTORIAL',
                       style: textTheme.labelSmall?.copyWith(
                         color: AppColors.primary,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Revisión operativa en tiempo real',
+                      eventId == null
+                          ? 'Sin evento activo'
+                          : 'Actividad reciente',
                       style: textTheme.displayMedium?.copyWith(
                         color: AppColors.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      eventId == null
+                          ? 'Conecta un evento para ver registros.'
+                          : '$totalCount registros · ${summary.validCount} válidos · ${summary.incidentCount} incidencias',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: AppColors.onSurfaceMuted,
                       ),
                     ),
                   ],
                 ),
               ),
-              if (onOpenTicketDetail != null)
-                LemaStatusPill(
-                  label: 'Detalle',
-                  color: AppColors.primaryStrong,
-                ),
+              IconButton(
+                onPressed: onRefresh,
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: 'Actualizar historial',
+              ),
             ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Consulta las últimas validaciones, detecta patrones y abre el ticket más reciente con un solo toque.',
-            style: textTheme.bodyMedium?.copyWith(
-              color: AppColors.onSurfaceMuted,
-            ),
           ),
         ],
       ),
@@ -232,80 +218,65 @@ class _Header extends StatelessWidget {
 class _HistoryCard extends StatelessWidget {
   const _HistoryCard({required this.item, this.onTap});
 
-  final _HistoryItem item;
+  final AccessHistoryEntry item;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final tone = toneForState(item.state);
+    final tone = _toneForResultCode(item.resultCode);
     final textTheme = Theme.of(context).textTheme;
+    final ticket = item.ticket;
+    final attendeeName =
+        ticket?.attendee.fullName ?? item.actor.displayName ?? 'Sin asistente';
+    final ticketType = ticket?.ticketType.name ?? 'Sin tipo de entrada';
+    final code =
+        ticket?.code ?? item.normalizedInput ?? item.rawInput ?? 'Sin código';
 
     return LemaStatusStripCard(
       accent: tone.accent,
       onTap: onTap,
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  attendeeName,
+                  style: textTheme.titleLarge?.copyWith(
+                    color: AppColors.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$ticketType · $code',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurfaceMuted,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _sourceLabel(item.source),
+                  style: textTheme.labelSmall?.copyWith(
+                    color: AppColors.onSurfaceMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              CircleAvatar(
-                radius: 21,
-                backgroundColor: tone.accent.withValues(alpha: 0.14),
-                child: Icon(tone.icon, color: tone.accent, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.name,
-                      style: textTheme.titleLarge?.copyWith(
-                        color: AppColors.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.ticketType,
-                      style: textTheme.labelMedium?.copyWith(
-                        color: AppColors.onSurfaceMuted,
-                      ),
-                    ),
-                  ],
+              Text(
+                _formatRelativeTime(item.createdAt),
+                style: textTheme.labelSmall?.copyWith(
+                  color: AppColors.onSurfaceMuted,
                 ),
               ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    item.timeAgo,
-                    style: textTheme.labelSmall?.copyWith(
-                      color: AppColors.onSurfaceMuted,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  LemaTag(
-                    label: tone.label,
-                    color: tone.accent.withValues(alpha: 0.14),
-                    textColor: tone.accent,
-                    icon: tone.icon,
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _MetaBlock(label: 'Código', value: item.code),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MetaBlock(label: 'Estado', value: tone.label),
-              ),
+              const SizedBox(height: 8),
+              LemaStatusPill(label: tone.label, color: tone.accent),
             ],
           ),
         ],
@@ -314,40 +285,55 @@ class _HistoryCard extends StatelessWidget {
   }
 }
 
-class _MetaBlock extends StatelessWidget {
-  const _MetaBlock({required this.label, required this.value});
+class _LoadMoreButton extends StatelessWidget {
+  const _LoadMoreButton({required this.isLoadingMore, required this.onPressed});
 
-  final String label;
-  final String value;
+  final bool isLoadingMore;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: isLoadingMore ? null : onPressed,
+      icon: const Icon(Icons.expand_more_rounded),
+      label: Text(isLoadingMore ? 'Cargando...' : 'Cargar más'),
+    );
+  }
+}
+
+class _EmptyHistoryState extends StatelessWidget {
+  const _EmptyHistoryState({required this.eventId, required this.onRefresh});
+
+  final String? eventId;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceHigh,
-        borderRadius: BorderRadius.circular(10),
-      ),
+    return LemaPanel(
+      color: AppColors.surfaceLow,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label.toUpperCase(),
-            style: textTheme.labelSmall?.copyWith(
+            eventId == null ? 'Sin evento activo' : 'Sin actividad reciente',
+            style: textTheme.titleLarge,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            eventId == null
+                ? 'Selecciona un evento antes de abrir el historial.'
+                : 'Todavía no hay accesos registrados para este evento.',
+            style: textTheme.bodyMedium?.copyWith(
               color: AppColors.onSurfaceMuted,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: textTheme.bodyMedium?.copyWith(
-              color: AppColors.onSurface,
-              fontWeight: FontWeight.w700,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: onRefresh,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Actualizar'),
           ),
         ],
       ),
@@ -355,18 +341,166 @@ class _MetaBlock extends StatelessWidget {
   }
 }
 
-class _HistoryItem {
-  const _HistoryItem({
-    required this.name,
-    required this.ticketType,
-    required this.code,
-    required this.timeAgo,
-    required this.state,
+class _LoadingState extends StatelessWidget {
+  const _LoadingState({required this.textTheme});
+
+  final TextTheme textTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 80),
+          const CircularProgressIndicator(),
+          const SizedBox(height: 16),
+          Text(
+            'Cargando historial...',
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurfaceMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.error, required this.onRetry});
+
+  final Object error;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final message = error is AccessRpcException
+        ? (error as AccessRpcException).message
+        : 'No se pudo cargar el historial.';
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 72),
+        child: LemaPanel(
+          color: AppColors.surfaceLow,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Error al leer el historial', style: textTheme.titleLarge),
+              const SizedBox(height: 10),
+              Text(
+                message,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onSurfaceMuted,
+                ),
+              ),
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+_HistoryTone _toneForResultCode(String resultCode) {
+  switch (resultCode) {
+    case 'valid':
+      return const _HistoryTone(
+        label: 'Válido',
+        accent: AppColors.success,
+        icon: Icons.check_circle_rounded,
+      );
+    case 'already_used':
+      return const _HistoryTone(
+        label: 'Ya usado',
+        accent: AppColors.warning,
+        icon: Icons.history_toggle_off_rounded,
+      );
+    case 'wrong_event':
+      return const _HistoryTone(
+        label: 'Evento incorrecto',
+        accent: AppColors.error,
+        icon: Icons.swap_horiz_rounded,
+      );
+    case 'cancelled_or_invalid':
+      return const _HistoryTone(
+        label: 'Inválido',
+        accent: AppColors.error,
+        icon: Icons.block_rounded,
+      );
+    case 'not_found':
+      return const _HistoryTone(
+        label: 'No encontrado',
+        accent: Color(0xFF9CA3AF),
+        icon: Icons.search_off_rounded,
+      );
+    case 'forbidden':
+      return const _HistoryTone(
+        label: 'Sin permiso',
+        accent: AppColors.primaryStrong,
+        icon: Icons.lock_outline,
+      );
+    case 'temporary_error':
+      return const _HistoryTone(
+        label: 'Error temporal',
+        accent: AppColors.warning,
+        icon: Icons.cloud_off_rounded,
+      );
+    default:
+      return const _HistoryTone(
+        label: 'Desconocido',
+        accent: AppColors.onSurfaceMuted,
+        icon: Icons.help_outline_rounded,
+      );
+  }
+}
+
+String _sourceLabel(String source) {
+  switch (source) {
+    case 'scanner':
+      return 'Escáner';
+    case 'manual_code':
+      return 'Código manual';
+    case 'manual_search':
+      return 'Búsqueda manual';
+    case 'manual_detail':
+      return 'Detalle manual';
+    default:
+      return source;
+  }
+}
+
+String _formatRelativeTime(DateTime createdAt) {
+  final difference = DateTime.now().difference(createdAt.toLocal());
+  if (difference.inMinutes < 1) {
+    return 'Ahora';
+  }
+  if (difference.inHours < 1) {
+    return 'Hace ${difference.inMinutes} min';
+  }
+  if (difference.inDays < 1) {
+    return 'Hace ${difference.inHours} h';
+  }
+  return 'Hace ${difference.inDays} d';
+}
+
+class _HistoryTone {
+  const _HistoryTone({
+    required this.label,
+    required this.accent,
+    required this.icon,
   });
 
-  final String name;
-  final String ticketType;
-  final String code;
-  final String timeAgo;
-  final TicketState state;
+  final String label;
+  final Color accent;
+  final IconData icon;
 }

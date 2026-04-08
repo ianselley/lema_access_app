@@ -1,199 +1,172 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/demo_models.dart';
+import '../access/core/access_debug_log.dart';
+import '../access/core/access_failure.dart';
+import '../access/events/access_event_ui.dart';
+import '../access/models/access_models.dart';
+import '../access/providers/access_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
 
-class EventListScreen extends StatelessWidget {
+class EventListScreen extends ConsumerWidget {
   const EventListScreen({super.key, this.onOpenEvent, this.onOpenProfile});
 
-  final VoidCallback? onOpenEvent;
+  final ValueChanged<String>? onOpenEvent;
   final VoidCallback? onOpenProfile;
 
   @override
-  Widget build(BuildContext context) {
-    const events = <EventSummary>[
-      EventSummary(
-        id: '992-K',
-        name: 'TechSummit Madrid 2024',
-        location: 'Pabellón 8 · IFEMA',
-        capacityLabel: '4.120 / 5.000',
-        progress: 0.82,
-        progressLabel: '82%',
-        statusLabel: 'En vivo',
-        isActive: true,
-      ),
-      EventSummary(
-        id: '741-X',
-        name: 'Concierto Acústico Rock',
-        location: 'Sala Riviera',
-        capacityLabel: '150 / 500',
-        progress: 0.30,
-        progressLabel: '30%',
-        statusLabel: 'Activa',
-        isActive: true,
-      ),
-      EventSummary(
-        id: '224-M',
-        name: 'Congreso de Neurociencia',
-        location: 'Palacio de Congresos',
-        capacityLabel: '1.2k pre-reg',
-        progress: 0.44,
-        progressLabel: '44%',
-        statusLabel: 'Próximo',
-        isActive: false,
-      ),
-      EventSummary(
-        id: '519-P',
-        name: 'Gala Anual de Logística',
-        location: 'Hotel Ritz Madrid',
-        capacityLabel: '450 pre-reg',
-        progress: 0.18,
-        progressLabel: '18%',
-        statusLabel: 'Próximo',
-        isActive: false,
-      ),
-      EventSummary(
-        id: '118-R',
-        name: 'ExpoRetail Digital',
-        location: 'Hall 3 · IFEMA',
-        capacityLabel: '100%',
-        progress: 1,
-        progressLabel: '100%',
-        statusLabel: 'Finalizado',
-        isActive: false,
-      ),
-    ];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncEvents = ref.watch(accessEventsProvider);
 
-    final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
+    return asyncEvents.when(
+      loading: () {
+        accessLog('Event list loading', scope: 'events');
+        return const LemaScaffold(
+          padding: EdgeInsets.fromLTRB(20, 18, 20, 24),
+          body: Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          ),
+        );
+      },
+      error: (error, stackTrace) {
+        accessLog(
+          'Event list error: $error',
+          scope: 'events',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        return LemaScaffold(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          body: _EventsErrorState(
+            error: error,
+            onRetry: () => ref.invalidate(accessEventsProvider),
+            onOpenProfile: onOpenProfile,
+          ),
+        );
+      },
+      data: (events) {
+        accessLog(
+          'Event list rendered with ${events.length} events',
+          scope: 'events',
+        );
+        final liveEvents = events.where((event) => event.isLive).toList();
+        final scheduledEvents = events
+            .where((event) => event.isScheduled)
+            .take(3)
+            .toList();
+        final finishedEvents = events
+            .where((event) => event.isFinished)
+            .take(3)
+            .toList();
+        final pendingCount = events.fold<int>(
+          0,
+          (sum, event) => sum + event.pendingCheckInCount,
+        );
 
-    return LemaScaffold(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _Header(onOpenProfile: onOpenProfile)),
-          const SliverToBoxAdapter(child: SizedBox(height: 22)),
-          SliverToBoxAdapter(
-            child: _OverviewRow(
-              totalEvents: '05',
-              liveEvents: '02',
-              pendingCheckins: '1.9k',
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 26)),
-          SliverToBoxAdapter(
-            child: _SectionHeader(
-              title: 'En curso',
-              subtitle: 'Eventos que están activos ahora mismo',
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 14)),
-          SliverToBoxAdapter(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 360;
-                if (!isWide) {
-                  return Column(
-                    children: [
-                      _ActiveEventCard(
-                        event: events[0],
-                        onTap: onOpenEvent,
-                        isPrimary: true,
-                      ),
-                      const SizedBox(height: 12),
-                      _ActiveEventCard(
-                        event: events[1],
-                        onTap: null,
-                        isPrimary: false,
-                      ),
-                    ],
-                  );
-                }
-
-                return Row(
-                  children: [
-                    Expanded(
-                      child: _ActiveEventCard(
-                        event: events[0],
-                        onTap: onOpenEvent,
-                        isPrimary: true,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ActiveEventCard(
-                        event: events[1],
-                        onTap: onOpenEvent,
-                        isPrimary: false,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          SliverToBoxAdapter(
-            child: _SectionHeader(
-              title: 'Próximos',
-              subtitle: 'Eventos listos para preparar el flujo',
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 14)),
-          SliverList(
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final event = events[index + 2];
-              return Padding(
-                padding: EdgeInsets.only(bottom: index == 1 ? 0 : 12),
-                child: _UpcomingEventCard(event: event),
-              );
-            }, childCount: 2),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          SliverToBoxAdapter(
-            child: _SectionHeader(
-              title: 'Finalizados',
-              subtitle: 'Eventos cerrados recientemente',
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 14)),
-          SliverToBoxAdapter(child: _FinishedRow(event: events[4])),
-          const SliverToBoxAdapter(child: SizedBox(height: 12)),
-          SliverToBoxAdapter(
-            child: LemaPanel(
-              color: AppColors.surfaceLow,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Tu acceso', style: textTheme.labelSmall),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Operación continua',
-                        style: textTheme.titleLarge?.copyWith(
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  LemaStatusPill(label: 'Activa', color: AppColors.success),
-                ],
+        return LemaScaffold(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          body: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: _Header(
+                  totalEvents: events.length,
+                  liveEvents: liveEvents.length,
+                  pendingCount: pendingCount,
+                  onOpenProfile: onOpenProfile,
+                ),
               ),
-            ),
+              const SliverToBoxAdapter(child: SizedBox(height: 28)),
+              SliverToBoxAdapter(
+                child: _SectionHeader(
+                  title: liveEvents.isEmpty ? 'Disponibles ahora' : 'En curso',
+                  subtitle: liveEvents.isEmpty
+                      ? 'No hay eventos en vivo; puedes entrar en el siguiente evento disponible.'
+                      : 'Prioriza estos eventos para operar ahora.',
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
+              SliverToBoxAdapter(
+                child: _EventSectionGrid(
+                  events: liveEvents.isNotEmpty
+                      ? liveEvents.take(2).toList()
+                      : events.take(2).toList(),
+                  emptyLabel: 'No hay eventos disponibles.',
+                  onOpenEvent: onOpenEvent,
+                  highlightFirst: true,
+                ),
+              ),
+              if (scheduledEvents.isNotEmpty) ...[
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                const SliverToBoxAdapter(
+                  child: _SectionHeader(
+                    title: 'Próximos',
+                    subtitle: 'Siguientes eventos preparados para abrir.',
+                  ),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                SliverList(
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final event = scheduledEvents[index];
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: index == scheduledEvents.length - 1 ? 0 : 10,
+                      ),
+                      child: _CompactEventRow(
+                        event: event,
+                        icon: Icons.event_outlined,
+                        onTap: () => onOpenEvent?.call(event.event.id),
+                      ),
+                    );
+                  }, childCount: scheduledEvents.length),
+                ),
+              ],
+              if (finishedEvents.isNotEmpty) ...[
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                const SliverToBoxAdapter(
+                  child: _SectionHeader(
+                    title: 'Cerrados',
+                    subtitle: 'Últimos eventos finalizados.',
+                  ),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                SliverList(
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final event = finishedEvents[index];
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: index == finishedEvents.length - 1 ? 0 : 10,
+                      ),
+                      child: _CompactEventRow(
+                        event: event,
+                        icon: Icons.event_available_outlined,
+                        onTap: () => onOpenEvent?.call(event.event.id),
+                      ),
+                    );
+                  }, childCount: finishedEvents.length),
+                ),
+              ],
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.onOpenProfile});
+  const _Header({
+    required this.totalEvents,
+    required this.liveEvents,
+    required this.pendingCount,
+    required this.onOpenProfile,
+  });
 
+  final int totalEvents;
+  final int liveEvents;
+  final int pendingCount;
   final VoidCallback? onOpenProfile;
 
   @override
@@ -223,7 +196,7 @@ class _Header extends StatelessWidget {
               Text('Tus eventos', style: textTheme.displayLarge),
               const SizedBox(height: 8),
               Text(
-                'Gestiona accesos activos, próximos cierres y eventos finalizados desde una sola vista.',
+                '$liveEvents en curso · $pendingCount pendientes · $totalEvents totales',
                 style: textTheme.bodyMedium?.copyWith(
                   color: AppColors.onSurfaceMuted,
                 ),
@@ -260,84 +233,11 @@ class _BrandMark extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 10,
-      height: 10,
-      decoration: const BoxDecoration(
-        color: AppColors.primaryStrong,
-        shape: BoxShape.circle,
+      height: 24,
+      decoration: BoxDecoration(
+        gradient: AppColors.primaryGradient,
+        borderRadius: BorderRadius.circular(99),
       ),
-    );
-  }
-}
-
-class _OverviewRow extends StatelessWidget {
-  const _OverviewRow({
-    required this.totalEvents,
-    required this.liveEvents,
-    required this.pendingCheckins,
-  });
-
-  final String totalEvents;
-  final String liveEvents;
-  final String pendingCheckins;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 330;
-
-        if (compact) {
-          return Column(
-            children: [
-              LemaMetricPanel(
-                label: 'Eventos',
-                value: totalEvents,
-                accent: AppColors.primary,
-              ),
-              const SizedBox(height: 12),
-              LemaMetricPanel(
-                label: 'En vivo',
-                value: liveEvents,
-                accent: AppColors.secondary,
-              ),
-              const SizedBox(height: 12),
-              LemaMetricPanel(
-                label: 'Pendientes',
-                value: pendingCheckins,
-                accent: AppColors.primaryStrong,
-              ),
-            ],
-          );
-        }
-
-        return Row(
-          children: [
-            Expanded(
-              child: LemaMetricPanel(
-                label: 'Eventos',
-                value: totalEvents,
-                accent: AppColors.primary,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: LemaMetricPanel(
-                label: 'En vivo',
-                value: liveEvents,
-                accent: AppColors.secondary,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: LemaMetricPanel(
-                label: 'Pendientes',
-                value: pendingCheckins,
-                accent: AppColors.primaryStrong,
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 }
@@ -351,37 +251,84 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title.toUpperCase(),
-                style: textTheme.labelSmall?.copyWith(
-                  color: AppColors.onSurface,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                subtitle,
-                style: textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurfaceMuted,
-                ),
-              ),
-            ],
-          ),
+        Text(
+          title.toUpperCase(),
+          style: textTheme.labelSmall?.copyWith(color: AppColors.primary),
         ),
-        Container(
-          width: 8,
-          height: 8,
-          decoration: const BoxDecoration(
-            color: AppColors.primary,
-            shape: BoxShape.circle,
+        const SizedBox(height: 6),
+        Text(
+          subtitle,
+          style: textTheme.bodyMedium?.copyWith(
+            color: AppColors.onSurfaceMuted,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _EventSectionGrid extends StatelessWidget {
+  const _EventSectionGrid({
+    required this.events,
+    required this.emptyLabel,
+    required this.onOpenEvent,
+    required this.highlightFirst,
+  });
+
+  final List<AccessEventSummary> events;
+  final String emptyLabel;
+  final ValueChanged<String>? onOpenEvent;
+  final bool highlightFirst;
+
+  @override
+  Widget build(BuildContext context) {
+    if (events.isEmpty) {
+      return _EmptySectionCard(
+        label: emptyLabel,
+        detail: 'No hay nada que operar en este momento.',
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 360;
+        if (events.length == 1 || !isWide) {
+          return Column(
+            children: [
+              for (var index = 0; index < events.length; index++) ...[
+                _ActiveEventCard(
+                  event: events[index],
+                  onTap: onOpenEvent == null
+                      ? null
+                      : () => onOpenEvent!.call(events[index].event.id),
+                  isPrimary: highlightFirst && index == 0,
+                ),
+                if (index != events.length - 1) const SizedBox(height: 12),
+              ],
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            for (var index = 0; index < events.length; index++) ...[
+              Expanded(
+                child: _ActiveEventCard(
+                  event: events[index],
+                  onTap: onOpenEvent == null
+                      ? null
+                      : () => onOpenEvent!.call(events[index].event.id),
+                  isPrimary: highlightFirst && index == 0,
+                ),
+              ),
+              if (index != events.length - 1) const SizedBox(width: 12),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -393,84 +340,120 @@ class _ActiveEventCard extends StatelessWidget {
     required this.isPrimary,
   });
 
-  final EventSummary event;
+  final AccessEventSummary event;
   final VoidCallback? onTap;
   final bool isPrimary;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final accent = isPrimary ? AppColors.primaryStrong : AppColors.secondary;
 
     return _StripPanel(
-      accent: isPrimary ? AppColors.primaryStrong : AppColors.secondary,
+      accent: accent,
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              LemaTag(
-                label: 'ID ${event.id}',
-                color: AppColors.surfaceBright,
-                textColor: AppColors.primary,
-              ),
-              Icon(
-                Icons.sensors,
-                size: 18,
-                color: isPrimary
-                    ? AppColors.primaryStrong
-                    : AppColors.secondary,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(event.name, style: textTheme.headlineMedium),
-          const SizedBox(height: 6),
-          Text(
-            event.location.toUpperCase(),
-            style: textTheme.labelSmall?.copyWith(
-              color: AppColors.onSurfaceMuted,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Progreso de acceso',
-                style: textTheme.labelSmall?.copyWith(
-                  color: AppColors.onSurfaceMuted,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(event.displayName, style: textTheme.headlineMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      event.locationLabel,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: AppColors.onSurfaceMuted,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                event.progressLabel,
-                style: textTheme.labelLarge?.copyWith(color: AppColors.primary),
-              ),
+              const SizedBox(width: 12),
+              LemaStatusPill(label: event.statusLabel, color: accent),
             ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            event.progressLabel,
+            style: textTheme.titleLarge?.copyWith(color: AppColors.onSurface),
           ),
           const SizedBox(height: 8),
           LemaProgressBar(
             value: event.progress,
-            color: isPrimary ? AppColors.primaryStrong : AppColors.primary,
+            color: accent,
             background: AppColors.surfaceLow,
           ),
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                event.capacityLabel,
-                style: textTheme.headlineMedium?.copyWith(fontSize: 26),
-              ),
-              LemaStatusPill(
-                label: event.statusLabel,
-                color: isPrimary
-                    ? AppColors.primaryStrong
-                    : AppColors.secondary,
-              ),
-            ],
+          const SizedBox(height: 10),
+          Text(
+            event.capacityLabel,
+            style: textTheme.labelMedium?.copyWith(
+              color: AppColors.onSurfaceMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactEventRow extends StatelessWidget {
+  const _CompactEventRow({required this.event, required this.icon, this.onTap});
+
+  final AccessEventSummary event;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return LemaPanel(
+      color: AppColors.surfaceLow,
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceHigh,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: AppColors.primary),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event.displayName,
+                  style: textTheme.titleMedium?.copyWith(
+                    color: AppColors.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  event.locationLabel,
+                  style: textTheme.labelSmall?.copyWith(
+                    color: AppColors.onSurfaceMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            event.statusLabel,
+            style: textTheme.labelMedium?.copyWith(
+              color: AppColors.onSurfaceMuted,
+            ),
           ),
         ],
       ),
@@ -513,10 +496,11 @@ class _StripPanel extends StatelessWidget {
   }
 }
 
-class _UpcomingEventCard extends StatelessWidget {
-  const _UpcomingEventCard({required this.event});
+class _EmptySectionCard extends StatelessWidget {
+  const _EmptySectionCard({required this.label, required this.detail});
 
-  final EventSummary event;
+  final String label;
+  final String detail;
 
   @override
   Widget build(BuildContext context) {
@@ -524,53 +508,16 @@ class _UpcomingEventCard extends StatelessWidget {
 
     return LemaPanel(
       color: AppColors.surfaceLow,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceHigh,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: AppColors.outlineVariant.withValues(alpha: 0.18),
-              ),
+          Text(label, style: textTheme.titleLarge),
+          const SizedBox(height: 6),
+          Text(
+            detail,
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurfaceMuted,
             ),
-            child: Icon(Icons.event, color: AppColors.primary, size: 26),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                LemaTag(
-                  label: event.id,
-                  color: AppColors.surfaceBright,
-                  textColor: AppColors.onSurfaceMuted,
-                ),
-                const SizedBox(height: 10),
-                Text(event.name, style: textTheme.titleLarge),
-                const SizedBox(height: 6),
-                Text(event.location, style: textTheme.labelSmall),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                event.capacityLabel,
-                style: textTheme.titleLarge?.copyWith(color: AppColors.primary),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                event.statusLabel.toUpperCase(),
-                style: textTheme.labelSmall?.copyWith(
-                  color: AppColors.onSurfaceMuted,
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -578,46 +525,61 @@ class _UpcomingEventCard extends StatelessWidget {
   }
 }
 
-class _FinishedRow extends StatelessWidget {
-  const _FinishedRow({required this.event});
+class _EventsErrorState extends StatelessWidget {
+  const _EventsErrorState({
+    required this.error,
+    required this.onRetry,
+    this.onOpenProfile,
+  });
 
-  final EventSummary event;
+  final Object error;
+  final VoidCallback onRetry;
+  final VoidCallback? onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    return LemaPanel(
-      color: AppColors.surfaceLow,
-      child: Row(
-        children: [
-          Container(
-            width: 12,
-            height: 12,
-            decoration: const BoxDecoration(
-              color: AppColors.success,
-              shape: BoxShape.circle,
+    final accessFailure = error is AccessFailure
+        ? error as AccessFailure
+        : null;
+    final message =
+        accessFailure?.message ?? 'No se pudieron cargar los eventos.';
+
+    return Center(
+      child: LemaPanel(
+        color: AppColors.surfaceLow,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Error de eventos', style: textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: textTheme.bodyMedium?.copyWith(
+                color: AppColors.onSurfaceMuted,
+              ),
             ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
               children: [
-                Text(event.name, style: textTheme.titleLarge),
-                const SizedBox(height: 6),
-                Text(
-                  '${event.location} · ${event.capacityLabel}',
-                  style: textTheme.labelSmall,
+                OutlinedButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Reintentar'),
                 ),
+                if (onOpenProfile != null)
+                  OutlinedButton.icon(
+                    onPressed: onOpenProfile,
+                    icon: const Icon(Icons.person_outline),
+                    label: const Text('Revisar sesión'),
+                  ),
               ],
             ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            event.statusLabel.toUpperCase(),
-            style: textTheme.labelSmall?.copyWith(color: AppColors.success),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

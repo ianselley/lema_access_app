@@ -1,5 +1,10 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../access/tickets/access_ticket_providers.dart';
+import '../widgets/lema_scaffold.dart';
 import 'event_home_screen.dart';
 import 'event_list_screen.dart';
 import 'invalid_result_screen.dart';
@@ -37,117 +42,231 @@ enum DemoPage {
   profileSession,
 }
 
-class OperatorDemoApp extends StatefulWidget {
+class OperatorDemoApp extends ConsumerStatefulWidget {
   const OperatorDemoApp({super.key});
 
   @override
-  State<OperatorDemoApp> createState() => _OperatorDemoAppState();
+  ConsumerState<OperatorDemoApp> createState() => _OperatorDemoAppState();
 }
 
-class _OperatorDemoAppState extends State<OperatorDemoApp> {
-  DemoPage _page = DemoPage.login;
+class _OperatorDemoAppState extends ConsumerState<OperatorDemoApp> {
+  final List<_DemoRouteEntry> _stack = <_DemoRouteEntry>[
+    _DemoRouteEntry(DemoPage.eventList),
+  ];
 
-  void _open(DemoPage page) {
+  bool get _canGoBack => _stack.length > 1;
+
+  String? get _currentEventId =>
+      ref.read(accessCurrentEventIdProvider)?.trim().isEmpty == true
+      ? null
+      : ref.read(accessCurrentEventIdProvider);
+
+  void _push(DemoPage page, {String? eventId}) {
+    if (eventId != null && eventId.trim().isNotEmpty) {
+      ref.read(accessCurrentEventIdProvider.notifier).state = eventId;
+    }
+
     setState(() {
-      _page = page;
+      _stack.add(_DemoRouteEntry(page, eventId: eventId));
     });
+  }
+
+  void _replaceRoot(DemoPage page, {String? eventId}) {
+    if (eventId != null && eventId.trim().isNotEmpty) {
+      ref.read(accessCurrentEventIdProvider.notifier).state = eventId;
+    } else if (page == DemoPage.eventList || page == DemoPage.login) {
+      ref.read(accessCurrentEventIdProvider.notifier).state = null;
+    }
+
+    setState(() {
+      _stack
+        ..clear()
+        ..add(_DemoRouteEntry(page, eventId: eventId));
+    });
+  }
+
+  void _pop() {
+    if (!_canGoBack) {
+      return;
+    }
+
+    setState(() {
+      _stack.removeLast();
+    });
+  }
+
+  void _popToOrPush(DemoPage page, {String? eventId}) {
+    final index = _stack.lastIndexWhere((entry) => entry.page == page);
+
+    if (index == -1) {
+      _push(page, eventId: eventId);
+      return;
+    }
+
+    if (eventId != null && eventId.trim().isNotEmpty) {
+      ref.read(accessCurrentEventIdProvider.notifier).state = eventId;
+    }
+
+    setState(() {
+      _stack.removeRange(index + 1, _stack.length);
+    });
+  }
+
+  void _openEventHome(String eventId) {
+    _push(DemoPage.eventHome, eventId: eventId);
   }
 
   Widget _wrapShell({required OperatorShellTab tab, required Widget child}) {
     return OperatorShellScreen(
       tab: tab,
-      onSelectScanner: () => _open(DemoPage.scannerActive),
-      onSelectManual: () => _open(DemoPage.manualCode),
-      onSelectHistory: () => _open(DemoPage.recentHistory),
+      onSelectScanner: () => _popToOrPush(DemoPage.scannerActive),
+      onSelectManual: () => _popToOrPush(DemoPage.manualCode),
+      onSelectHistory: () => _popToOrPush(
+        DemoPage.recentHistory,
+        eventId: _currentEventId,
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildScreen(_DemoRouteEntry entry) {
+    switch (entry.page) {
+      case DemoPage.login:
+        return LoginScreen(
+          onLogin: () => _replaceRoot(DemoPage.eventList),
+        );
+      case DemoPage.eventList:
+        return EventListScreen(
+          onOpenEvent: _openEventHome,
+          onOpenProfile: () => _push(DemoPage.profileSession),
+        );
+      case DemoPage.eventHome:
+        return EventHomeScreen(
+          eventId: entry.eventId ?? _currentEventId ?? '',
+          onOpenScanner: () => _push(DemoPage.scannerActive),
+          onOpenHistory: () => _push(
+            DemoPage.recentHistory,
+            eventId: entry.eventId ?? _currentEventId,
+          ),
+        );
+      case DemoPage.scannerActive:
+        return _wrapShell(
+          tab: OperatorShellTab.scanner,
+          child: ScannerActiveScreen(
+            onOpenValid: () => _push(DemoPage.validResult),
+            onOpenUsed: () => _push(DemoPage.usedResult),
+            onOpenInvalid: () => _push(DemoPage.invalidResult),
+            onOpenNotFound: () => _push(DemoPage.notFoundResult),
+            onOpenNetworkError: () => _push(DemoPage.networkErrorResult),
+            onManualEntry: () => _push(DemoPage.manualCode),
+            onManualSearch: () => _push(DemoPage.manualSearch),
+          ),
+        );
+      case DemoPage.validResult:
+        return ValidResultScreen(
+          onContinueScanning: () => _popToOrPush(DemoPage.scannerActive),
+        );
+      case DemoPage.usedResult:
+        return UsedResultScreen(
+          onContinueScanning: () => _popToOrPush(DemoPage.scannerActive),
+        );
+      case DemoPage.invalidResult:
+        return InvalidResultScreen(
+          onContinueScanning: () => _popToOrPush(DemoPage.scannerActive),
+        );
+      case DemoPage.notFoundResult:
+        return NotFoundResultScreen(
+          onManualSearch: () => _push(DemoPage.manualSearch),
+          onContinueScanning: () => _popToOrPush(DemoPage.scannerActive),
+        );
+      case DemoPage.networkErrorResult:
+        return NetworkErrorResultScreen(
+          onRetry: () => _popToOrPush(DemoPage.scannerActive),
+          onManualEntry: () => _push(DemoPage.manualCode),
+        );
+      case DemoPage.manualCode:
+        return _wrapShell(
+          tab: OperatorShellTab.manual,
+          child: ManualCodeScreen(
+            onSubmitCode: () => _push(DemoPage.manualConfirmation),
+            onOpenSearch: () => _push(DemoPage.manualSearch),
+          ),
+        );
+      case DemoPage.manualSearch:
+        return _wrapShell(
+          tab: OperatorShellTab.manual,
+          child: ManualSearchScreen(
+            onSearch: () => _push(DemoPage.searchResults),
+          ),
+        );
+      case DemoPage.searchResults:
+        return _wrapShell(
+          tab: OperatorShellTab.manual,
+          child: SearchResultsScreen(
+            onOpenTicketDetail: () => _push(DemoPage.ticketDetail),
+          ),
+        );
+      case DemoPage.ticketDetail:
+        return TicketDetailScreen(
+          onConfirmManualAccess: () => _push(DemoPage.manualConfirmation),
+        );
+      case DemoPage.manualConfirmation:
+        return ManualConfirmationScreen(
+          onContinue: () => _popToOrPush(DemoPage.scannerActive),
+        );
+      case DemoPage.recentHistory:
+        return _wrapShell(
+          tab: OperatorShellTab.history,
+          child: RecentHistoryScreen(
+            eventId: entry.eventId ?? _currentEventId,
+            onOpenTicketDetail: () => _push(DemoPage.ticketDetail),
+          ),
+        );
+      case DemoPage.profileSession:
+        return ProfileSessionScreen(
+          onLogout: () => _replaceRoot(DemoPage.login),
+        );
+    }
+  }
+
+  Page<void> _buildPage(_DemoRouteEntry entry) {
+    final child = _buildScreen(entry);
+    final name = entry.page.name;
+
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return CupertinoPage<void>(
+        key: entry.key,
+        name: name,
+        child: child,
+      );
+    }
+
+    return MaterialPage<void>(
+      key: entry.key,
+      name: name,
       child: child,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 180),
-      switchInCurve: Curves.easeOut,
-      switchOutCurve: Curves.easeIn,
-      child: KeyedSubtree(
-        key: ValueKey(_page),
-        child: switch (_page) {
-          DemoPage.login => LoginScreen(
-            onLogin: () => _open(DemoPage.eventList),
-          ),
-          DemoPage.eventList => EventListScreen(
-            onOpenEvent: () => _open(DemoPage.eventHome),
-            onOpenProfile: () => _open(DemoPage.profileSession),
-          ),
-          DemoPage.eventHome => EventHomeScreen(
-            onOpenScanner: () => _open(DemoPage.scannerActive),
-            onOpenHistory: () => _open(DemoPage.recentHistory),
-          ),
-          DemoPage.scannerActive => _wrapShell(
-            tab: OperatorShellTab.scanner,
-            child: ScannerActiveScreen(
-              onOpenValid: () => _open(DemoPage.validResult),
-              onOpenUsed: () => _open(DemoPage.usedResult),
-              onOpenInvalid: () => _open(DemoPage.invalidResult),
-              onOpenNotFound: () => _open(DemoPage.notFoundResult),
-              onOpenNetworkError: () => _open(DemoPage.networkErrorResult),
-              onManualEntry: () => _open(DemoPage.manualCode),
-              onManualSearch: () => _open(DemoPage.manualSearch),
-            ),
-          ),
-          DemoPage.validResult => ValidResultScreen(
-            onContinueScanning: () => _open(DemoPage.scannerActive),
-          ),
-          DemoPage.usedResult => UsedResultScreen(
-            onContinueScanning: () => _open(DemoPage.scannerActive),
-          ),
-          DemoPage.invalidResult => InvalidResultScreen(
-            onContinueScanning: () => _open(DemoPage.scannerActive),
-          ),
-          DemoPage.notFoundResult => NotFoundResultScreen(
-            onManualSearch: () => _open(DemoPage.manualSearch),
-            onContinueScanning: () => _open(DemoPage.scannerActive),
-          ),
-          DemoPage.networkErrorResult => NetworkErrorResultScreen(
-            onRetry: () => _open(DemoPage.scannerActive),
-            onManualEntry: () => _open(DemoPage.manualCode),
-          ),
-          DemoPage.manualCode => _wrapShell(
-            tab: OperatorShellTab.manual,
-            child: ManualCodeScreen(
-              onSubmitCode: () => _open(DemoPage.manualConfirmation),
-              onOpenSearch: () => _open(DemoPage.manualSearch),
-            ),
-          ),
-          DemoPage.manualSearch => _wrapShell(
-            tab: OperatorShellTab.manual,
-            child: ManualSearchScreen(
-              onSearch: () => _open(DemoPage.searchResults),
-            ),
-          ),
-          DemoPage.searchResults => _wrapShell(
-            tab: OperatorShellTab.manual,
-            child: SearchResultsScreen(
-              onOpenTicketDetail: () => _open(DemoPage.ticketDetail),
-            ),
-          ),
-          DemoPage.ticketDetail => TicketDetailScreen(
-            onConfirmManualAccess: () => _open(DemoPage.manualConfirmation),
-          ),
-          DemoPage.manualConfirmation => ManualConfirmationScreen(
-            onContinue: () => _open(DemoPage.scannerActive),
-          ),
-          DemoPage.recentHistory => _wrapShell(
-            tab: OperatorShellTab.history,
-            child: RecentHistoryScreen(
-              onOpenTicketDetail: () => _open(DemoPage.ticketDetail),
-            ),
-          ),
-          DemoPage.profileSession => ProfileSessionScreen(
-            onLogout: () => _open(DemoPage.login),
-          ),
+    return OperatorNavigationScope(
+      canGoBack: _canGoBack,
+      onBack: _pop,
+      child: Navigator(
+        pages: _stack.map(_buildPage).toList(growable: false),
+        onDidRemovePage: (page) {
+          _pop();
         },
       ),
     );
   }
+}
+
+class _DemoRouteEntry {
+  _DemoRouteEntry(this.page, {this.eventId}) : key = UniqueKey();
+
+  final DemoPage page;
+  final String? eventId;
+  final LocalKey key;
 }

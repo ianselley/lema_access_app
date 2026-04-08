@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/demo_models.dart';
+import '../access/scan/access_scan_models.dart';
+import '../access/scan/access_scan_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
 
-class ScannerActiveScreen extends StatelessWidget {
+class ScannerActiveScreen extends ConsumerStatefulWidget {
   const ScannerActiveScreen({
     super.key,
     this.onOpenValid,
@@ -13,6 +15,7 @@ class ScannerActiveScreen extends StatelessWidget {
     this.onOpenInvalid,
     this.onOpenNotFound,
     this.onOpenNetworkError,
+    this.onShowResult,
     this.onManualEntry,
     this.onManualSearch,
   });
@@ -22,103 +25,123 @@ class ScannerActiveScreen extends StatelessWidget {
   final VoidCallback? onOpenInvalid;
   final VoidCallback? onOpenNotFound;
   final VoidCallback? onOpenNetworkError;
+  final VoidCallback? onShowResult;
   final VoidCallback? onManualEntry;
   final VoidCallback? onManualSearch;
 
   @override
+  ConsumerState<ScannerActiveScreen> createState() =>
+      _ScannerActiveScreenState();
+}
+
+class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen> {
+  final TextEditingController _scanController = TextEditingController();
+
+  @override
+  void dispose() {
+    _scanController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitScan() async {
+    final rawInput = _scanController.text.trim();
+    if (rawInput.isEmpty) {
+      return;
+    }
+
+    final outcome = await ref
+        .read(accessScanControllerProvider.notifier)
+        .submitScanInput(rawInput);
+
+    if (!mounted || outcome == null) {
+      return;
+    }
+
+    switch (outcome.resultCode) {
+      case 'valid':
+        widget.onOpenValid?.call();
+        break;
+      case 'already_used':
+        widget.onOpenUsed?.call();
+        break;
+      case 'not_found':
+        widget.onOpenNotFound?.call();
+        break;
+      case 'temporary_error':
+        widget.onOpenNetworkError?.call();
+        break;
+      case 'wrong_event':
+      case 'cancelled_or_invalid':
+      case 'forbidden':
+        widget.onOpenInvalid?.call();
+        break;
+      default:
+        widget.onShowResult?.call();
+        break;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final state = ref.watch(accessScanControllerProvider);
+    final isProcessing = state is AccessScanProcessing;
 
     return LemaScaffold(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _ScannerHeader(
-                    eventName: 'TechSummit Madrid 2024',
-                    operatorName: 'Operador LEMA',
-                    title: textTheme.displayMedium,
-                  ),
-                  const SizedBox(height: 20),
-                  _ScannerViewport(),
-                  const SizedBox(height: 18),
-                  _LiveStatusRow(),
-                  const SizedBox(height: 18),
-                  _TipsPanel(),
-                  const SizedBox(height: 18),
-                  _QuickActions(
-                    onOpenValid: onOpenValid,
-                    onOpenUsed: onOpenUsed,
-                    onOpenInvalid: onOpenInvalid,
-                    onOpenNotFound: onOpenNotFound,
-                    onOpenNetworkError: onOpenNetworkError,
-                    onManualEntry: onManualEntry,
-                    onManualSearch: onManualSearch,
-                  ),
-                  const SizedBox(height: 18),
-                  _ResultPreviewStrip(
-                    title: 'Resultados demo',
-                    subtitle:
-                        'Usa estas acciones para abrir cada estado sin salir del flujo de escaneo.',
-                    entries: [
-                      _DemoEntry(
-                        label: 'Válido',
-                        state: TicketState.valid,
-                        onTap: onOpenValid,
-                      ),
-                      _DemoEntry(
-                        label: 'Ya usado',
-                        state: TicketState.used,
-                        onTap: onOpenUsed,
-                      ),
-                      _DemoEntry(
-                        label: 'Inválido',
-                        state: TicketState.invalid,
-                        onTap: onOpenInvalid,
-                      ),
-                      _DemoEntry(
-                        label: 'No encontrado',
-                        state: TicketState.notFound,
-                        onTap: onOpenNotFound,
-                      ),
-                      _DemoEntry(
-                        label: 'Error de red',
-                        state: TicketState.networkError,
-                        onTap: onOpenNetworkError,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  _OperatorFooter(
-                    onManualEntry: onManualEntry,
-                    onManualSearch: onManualSearch,
-                  ),
-                ],
-              ),
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ScannerHeader(
+              eventName: _eventNameFromState(state),
+              operatorLabel: _operatorLabelForState(state),
             ),
-          );
-        },
+            const SizedBox(height: 20),
+            const _ScannerViewport(),
+            const SizedBox(height: 18),
+            _ScanInputCard(
+              controller: _scanController,
+              isProcessing: isProcessing,
+              onSubmit: _submitScan,
+              onManualEntry: widget.onManualEntry,
+              onManualSearch: widget.onManualSearch,
+            ),
+            const SizedBox(height: 16),
+            _ScanOutcomeCard(state: state),
+            if (state is AccessScanFailure) ...[
+              const SizedBox(height: 16),
+              _FailureBanner(failure: state.failure),
+            ],
+            const OperatorShellBottomSpacer(),
+          ],
+        ),
       ),
     );
+  }
+
+  String _eventNameFromState(AccessScanState state) {
+    return 'Evento activo';
+  }
+
+  String _operatorLabelForState(AccessScanState state) {
+    return switch (state) {
+      AccessScanProcessing(:final label) => label,
+      AccessScanSuccess(:final outcome) =>
+        outcome.stage == AccessScanStage.preview
+            ? 'Revisión manual'
+            : 'Validación registrada',
+      AccessScanFailure() => 'Revisar conexión',
+      _ => 'Operador LEMA',
+    };
   }
 }
 
 class _ScannerHeader extends StatelessWidget {
-  const _ScannerHeader({
-    required this.eventName,
-    required this.operatorName,
-    required this.title,
-  });
+  const _ScannerHeader({required this.eventName, required this.operatorLabel});
 
   final String eventName;
-  final String operatorName;
-  final TextStyle? title;
+  final String operatorLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -136,20 +159,13 @@ class _ScannerHeader extends StatelessWidget {
                 style: textTheme.labelSmall?.copyWith(color: AppColors.primary),
               ),
               const SizedBox(height: 6),
-              Text(eventName, style: title),
+              Text(eventName, style: textTheme.displayMedium),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  const LemaTag(label: 'En vivo', icon: Icons.sensors),
-                  LemaTag(
-                    label: operatorName,
-                    color: AppColors.surfaceHigh,
-                    textColor: AppColors.onSurface,
-                    icon: Icons.badge_outlined,
-                  ),
-                ],
+              Text(
+                operatorLabel,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onSurfaceMuted,
+                ),
               ),
             ],
           ),
@@ -169,31 +185,24 @@ class _NetworkBadge extends StatelessWidget {
     return LemaPanel(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       color: AppColors.surfaceLow,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: AppColors.success,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Conectado',
-                style: Theme.of(
-                  context,
-                ).textTheme.labelSmall?.copyWith(color: AppColors.success),
-              ),
-            ],
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: AppColors.success,
+              shape: BoxShape.circle,
+            ),
           ),
-          const SizedBox(height: 6),
-          Text('LATENCIA 12 MS', style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(width: 8),
+          Text(
+            'Conectado',
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: AppColors.success),
+          ),
         ],
       ),
     );
@@ -201,6 +210,8 @@ class _NetworkBadge extends StatelessWidget {
 }
 
 class _ScannerViewport extends StatelessWidget {
+  const _ScannerViewport();
+
   @override
   Widget build(BuildContext context) {
     return LemaPanel(
@@ -239,49 +250,29 @@ class _ScannerViewport extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          TweenAnimationBuilder<double>(
-                            tween: Tween(begin: 0.92, end: 1),
-                            duration: const Duration(milliseconds: 1400),
-                            curve: Curves.easeInOut,
-                            builder: (context, scale, child) {
-                              return Transform.scale(
-                                scale: scale,
-                                child: child,
-                              );
-                            },
-                            child: Container(
-                              width: 92,
-                              height: 92,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: AppColors.primary.withValues(
-                                  alpha: 0.08,
+                          Container(
+                            width: 92,
+                            height: 92,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.primary.withValues(alpha: 0.08),
+                              border: Border.all(
+                                color: AppColors.primaryStrong.withValues(
+                                  alpha: 0.55,
                                 ),
-                                border: Border.all(
-                                  color: AppColors.primaryStrong.withValues(
-                                    alpha: 0.55,
-                                  ),
-                                  width: 1.5,
-                                ),
+                                width: 1.5,
                               ),
-                              child: const Icon(
-                                Icons.qr_code_scanner,
-                                size: 42,
-                                color: AppColors.primary,
-                              ),
+                            ),
+                            child: const Icon(
+                              Icons.qr_code_scanner,
+                              size: 42,
+                              color: AppColors.primary,
                             ),
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Alinea el código dentro del marco',
+                            'Alinea el código',
                             style: Theme.of(context).textTheme.titleLarge,
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'El lector detecta automáticamente tickets válidos, usados, inválidos y búsquedas manuales.',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: AppColors.onSurfaceMuted),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -368,361 +359,249 @@ class _ScanLine extends StatelessWidget {
   }
 }
 
-class _LiveStatusRow extends StatelessWidget {
+class _ScanInputCard extends StatelessWidget {
+  const _ScanInputCard({
+    required this.controller,
+    required this.isProcessing,
+    required this.onSubmit,
+    required this.onManualEntry,
+    required this.onManualSearch,
+  });
+
+  final TextEditingController controller;
+  final bool isProcessing;
+  final VoidCallback onSubmit;
+  final VoidCallback? onManualEntry;
+  final VoidCallback? onManualSearch;
+
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: LemaMetricPanel(
-            label: 'Estado',
-            value: 'Leyendo',
-            accent: AppColors.primary,
-            trailing: const Icon(Icons.sensors, color: AppColors.primary),
+    final textTheme = Theme.of(context).textTheme;
+
+    return LemaPanel(
+      color: AppColors.surfaceHighest,
+      borderColor: AppColors.outlineVariant.withValues(alpha: 0.18),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Introducir lectura',
+            style: textTheme.headlineMedium?.copyWith(
+              color: AppColors.onSurface,
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: LemaMetricPanel(
-            label: 'Sesión',
-            value: 'Operativa',
-            accent: AppColors.success,
-            trailing: const Icon(Icons.shield, color: AppColors.success),
+          const SizedBox(height: 14),
+          TextField(
+            controller: controller,
+            textInputAction: TextInputAction.done,
+            textCapitalization: TextCapitalization.characters,
+            keyboardType: TextInputType.text,
+            style: textTheme.headlineMedium?.copyWith(
+              color: AppColors.primary,
+              letterSpacing: 1.4,
+            ),
+            decoration: const InputDecoration(
+              labelText: 'Lectura',
+              hintText: 'LEMA-4831 o scan token',
+            ),
+            onSubmitted: (_) => onSubmit(),
           ),
-        ),
-      ],
+          const SizedBox(height: 14),
+          LemaPrimaryButton(
+            label: isProcessing ? 'Procesando...' : 'Validar lectura',
+            icon: isProcessing ? Icons.timelapse : Icons.check_circle_outline,
+            onPressed: isProcessing ? null : onSubmit,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onManualEntry,
+                  icon: const Icon(Icons.edit_note_rounded),
+                  label: const Text('Manual'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onManualSearch,
+                  icon: const Icon(Icons.manage_search_rounded),
+                  label: const Text('Buscar'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _TipsPanel extends StatelessWidget {
+class _ScanOutcomeCard extends StatelessWidget {
+  const _ScanOutcomeCard({required this.state});
+
+  final AccessScanState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    if (state is AccessScanIdle) {
+      return LemaPanel(
+        color: AppColors.surfaceLow,
+        child: Text(
+          'Listo para la siguiente lectura.',
+          style: textTheme.bodyMedium?.copyWith(
+            color: AppColors.onSurfaceMuted,
+          ),
+        ),
+      );
+    }
+
+    if (state is AccessScanProcessing) {
+      final processing = state as AccessScanProcessing;
+      return LemaPanel(
+        color: AppColors.surfaceLow,
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '${processing.label}: ${processing.rawInput}',
+                style: textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onSurfaceMuted,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (state is AccessScanFailure) {
+      final failure = state as AccessScanFailure;
+      return LemaPanel(
+        color: AppColors.surfaceLow,
+        borderColor: AppColors.error.withValues(alpha: 0.32),
+        child: Text(
+          failure.failure.message,
+          style: textTheme.bodyMedium?.copyWith(
+            color: AppColors.onSurfaceMuted,
+          ),
+        ),
+      );
+    }
+
+    final success = state as AccessScanSuccess;
+    final outcome = success.outcome;
+    final tone = _toneForVariant(outcome.uiVariant);
+
+    return LemaStatusStripCard(
+      accent: tone.$1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      outcome.headline,
+                      style: textTheme.headlineMedium?.copyWith(color: tone.$1),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      outcome.body,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: AppColors.onSurfaceMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(tone.$2, color: tone.$1),
+            ],
+          ),
+          if (outcome.ticket != null) ...[
+            const SizedBox(height: 12),
+            _TicketSummary(ticket: outcome.ticket!),
+          ],
+        ],
+      ),
+    );
+  }
+
+  (Color, IconData) _toneForVariant(AccessScanUiVariant variant) {
+    switch (variant) {
+      case AccessScanUiVariant.valid:
+        return (AppColors.success, Icons.check_circle);
+      case AccessScanUiVariant.used:
+        return (AppColors.warning, Icons.history_toggle_off);
+      case AccessScanUiVariant.invalid:
+        return (AppColors.error, Icons.block);
+      case AccessScanUiVariant.notFound:
+        return (const Color(0xFF9CA3AF), Icons.search_off);
+      case AccessScanUiVariant.networkError:
+        return (AppColors.error, Icons.wifi_off);
+    }
+  }
+}
+
+class _TicketSummary extends StatelessWidget {
+  const _TicketSummary({required this.ticket});
+
+  final AccessTicketSnapshot ticket;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Text(
+      '${ticket.displayName} · ${ticket.ticketTypeLabel} · ${ticket.code}',
+      style: textTheme.labelMedium?.copyWith(color: AppColors.onSurfaceMuted),
+    );
+  }
+}
+
+class _FailureBanner extends StatelessWidget {
+  const _FailureBanner({required this.failure});
+
+  final AccessScanFailureInfo failure;
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
     return LemaPanel(
       color: AppColors.surfaceLow,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Indicaciones rápidas', style: textTheme.titleLarge),
-          const SizedBox(height: 14),
-          const _TipLine(
-            icon: Icons.flash_on,
-            label: 'Mantén el código centrado y estable durante un segundo.',
-          ),
-          const SizedBox(height: 10),
-          const _TipLine(
-            icon: Icons.nfc,
-            label:
-                'Si el escaneo falla, prueba entrada manual o búsqueda por nombre.',
-          ),
-          const SizedBox(height: 10),
-          const _TipLine(
-            icon: Icons.lock_outline,
-            label: 'El resultado se valida antes de confirmar acceso.',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TipLine extends StatelessWidget {
-  const _TipLine({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: AppColors.primaryStrong),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppColors.onSurfaceMuted),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _QuickActions extends StatelessWidget {
-  const _QuickActions({
-    required this.onOpenValid,
-    required this.onOpenUsed,
-    required this.onOpenInvalid,
-    required this.onOpenNotFound,
-    required this.onOpenNetworkError,
-    required this.onManualEntry,
-    required this.onManualSearch,
-  });
-
-  final VoidCallback? onOpenValid;
-  final VoidCallback? onOpenUsed;
-  final VoidCallback? onOpenInvalid;
-  final VoidCallback? onOpenNotFound;
-  final VoidCallback? onOpenNetworkError;
-  final VoidCallback? onManualEntry;
-  final VoidCallback? onManualSearch;
-
-  @override
-  Widget build(BuildContext context) {
-    final actions = <_ActionData>[
-      _ActionData(label: 'Manual', icon: Icons.edit_note, onTap: onManualEntry),
-      _ActionData(
-        label: 'Buscar',
-        icon: Icons.manage_search,
-        onTap: onManualSearch,
-      ),
-      _ActionData(
-        label: 'Válido',
-        icon: Icons.check_circle,
-        onTap: onOpenValid,
-      ),
-      _ActionData(
-        label: 'Usado',
-        icon: Icons.history_toggle_off,
-        onTap: onOpenUsed,
-      ),
-      _ActionData(label: 'Inválido', icon: Icons.block, onTap: onOpenInvalid),
-      _ActionData(
-        label: 'No encontrado',
-        icon: Icons.search_off,
-        onTap: onOpenNotFound,
-      ),
-      _ActionData(
-        label: 'Red',
-        icon: Icons.wifi_off,
-        onTap: onOpenNetworkError,
-      ),
-    ];
-
-    return LemaPanel(
+      borderColor: AppColors.error.withValues(alpha: 0.24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Acciones rápidas',
-            style: Theme.of(context).textTheme.titleLarge,
+            failure.code,
+            style: textTheme.titleLarge?.copyWith(color: AppColors.error),
           ),
-          const SizedBox(height: 14),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: actions.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 2.9,
-            ),
-            itemBuilder: (context, index) {
-              final action = actions[index];
-              return _ActionTile(data: action);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionData {
-  const _ActionData({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback? onTap;
-}
-
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({required this.data});
-
-  final _ActionData data;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = data.onTap != null;
-
-    return Material(
-      color: AppColors.surfaceHigh,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: data.onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: enabled
-                  ? AppColors.outlineVariant.withValues(alpha: 0.22)
-                  : AppColors.outlineVariant.withValues(alpha: 0.12),
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                data.icon,
-                size: 18,
-                color: enabled ? AppColors.primary : AppColors.onSurfaceMuted,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  data.label,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: enabled
-                        ? AppColors.onSurface
-                        : AppColors.onSurfaceMuted,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ResultPreviewStrip extends StatelessWidget {
-  const _ResultPreviewStrip({
-    required this.title,
-    required this.subtitle,
-    required this.entries,
-  });
-
-  final String title;
-  final String subtitle;
-  final List<_DemoEntry> entries;
-
-  @override
-  Widget build(BuildContext context) {
-    return LemaPanel(
-      color: AppColors.surfaceLow,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           Text(
-            subtitle,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppColors.onSurfaceMuted),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: entries
-                .map(
-                  (entry) => _DemoChip(
-                    label: entry.label,
-                    tone: toneForState(entry.state),
-                    onTap: entry.onTap,
-                  ),
-                )
-                .toList(growable: false),
+            failure.message,
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurfaceMuted,
+            ),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _DemoEntry {
-  const _DemoEntry({
-    required this.label,
-    required this.state,
-    required this.onTap,
-  });
-
-  final String label;
-  final TicketState state;
-  final VoidCallback? onTap;
-}
-
-class _DemoChip extends StatelessWidget {
-  const _DemoChip({
-    required this.label,
-    required this.tone,
-    required this.onTap,
-  });
-
-  final String label;
-  final StatusTone tone;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final isEnabled = onTap != null;
-    return ActionChip(
-      onPressed: onTap,
-      avatar: Icon(tone.icon, size: 16, color: tone.foreground),
-      label: Text(label),
-      labelStyle: Theme.of(
-        context,
-      ).textTheme.labelLarge?.copyWith(color: tone.foreground),
-      backgroundColor: tone.background.withValues(alpha: 0.16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: isEnabled
-              ? tone.background.withValues(alpha: 0.4)
-              : AppColors.outlineVariant.withValues(alpha: 0.12),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      visualDensity: VisualDensity.compact,
-    );
-  }
-}
-
-class _OperatorFooter extends StatelessWidget {
-  const _OperatorFooter({
-    required this.onManualEntry,
-    required this.onManualSearch,
-  });
-
-  final VoidCallback? onManualEntry;
-  final VoidCallback? onManualSearch;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: LemaPrimaryButton(
-            label: 'Entrada manual',
-            icon: Icons.edit_note,
-            onPressed: onManualEntry,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: onManualSearch,
-            icon: const Icon(Icons.manage_search, size: 18),
-            label: const Text('Buscar'),
-          ),
-        ),
-      ],
     );
   }
 }

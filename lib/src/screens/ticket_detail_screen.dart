@@ -1,39 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/demo_models.dart';
+import '../access/core/access_rpc_exception.dart';
+import '../access/tickets/access_ticket_models.dart';
+import '../access/tickets/access_ticket_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
 
-class TicketDetailScreen extends StatelessWidget {
+class TicketDetailScreen extends ConsumerWidget {
   const TicketDetailScreen({super.key, this.onConfirmManualAccess});
 
   final VoidCallback? onConfirmManualAccess;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
-
-    final validationHistory = <_ValidationEvent>[
-      const _ValidationEvent(
-        title: 'Escaneo inicial',
-        detail: 'Validado por el puesto de acceso principal',
-        timestamp: '19:42',
-        state: TicketState.valid,
-      ),
-      const _ValidationEvent(
-        title: 'Revisión manual anterior',
-        detail: 'Sin incidencias detectadas en puerta secundaria',
-        timestamp: '19:18',
-        state: TicketState.valid,
-      ),
-      const _ValidationEvent(
-        title: 'Último intento',
-        detail: 'Marcado como usado en la sesión actual',
-        timestamp: '18:57',
-        state: TicketState.used,
-      ),
-    ];
+    final selection = ref.watch(accessSelectedTicketProvider);
+    final detailAsync = ref.watch(accessSelectedTicketDetailProvider);
+    final actionState = ref.watch(accessTicketCheckInControllerProvider);
 
     return LemaScaffold(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
@@ -42,255 +27,37 @@ class TicketDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.badge_outlined,
-                    color: AppColors.black,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Detalle del ticket',
-                        style: textTheme.labelSmall?.copyWith(
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text('Revisión manual', style: textTheme.titleLarge),
-                    ],
-                  ),
-                ),
-                LemaTag(
-                  label: 'Operativo',
-                  color: AppColors.surfaceHigh,
-                  textColor: AppColors.primary,
-                  icon: Icons.bolt,
-                ),
-              ],
-            ),
-            const SizedBox(height: 22),
-            LemaPanel(
-              color: AppColors.surfaceHighest,
-              borderColor: AppColors.outlineVariant.withValues(alpha: 0.18),
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CircleAvatar(
-                        radius: 26,
-                        backgroundColor: AppColors.primary.withValues(
-                          alpha: 0.12,
-                        ),
-                        child: const Icon(
-                          Icons.person,
-                          color: AppColors.primary,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'María Fernández',
-                              style: textTheme.displayMedium?.copyWith(
-                                color: AppColors.onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Entrada general - VIP',
-                              style: textTheme.bodyMedium?.copyWith(
-                                color: AppColors.onSurfaceMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      LemaStatusPill(
-                        label: 'Requiere confirmación',
-                        color: AppColors.warning,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: const [
-                      LemaTag(
-                        label: 'Código #LEMA-4831',
-                        color: AppColors.surfaceHigh,
-                        textColor: AppColors.primary,
-                        icon: Icons.receipt_long_outlined,
-                      ),
-                      LemaTag(
-                        label: 'Pedido #8932',
-                        color: AppColors.surfaceHigh,
-                        textColor: AppColors.onSurface,
-                        icon: Icons.shopping_bag_outlined,
-                      ),
-                      LemaTag(
-                        label: 'Puerta 2',
-                        color: AppColors.surfaceHigh,
-                        textColor: AppColors.secondary,
-                        icon: Icons.meeting_room_outlined,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  LemaProgressBar(
-                    value: 0.82,
-                    color: AppColors.primaryStrong,
-                    background: AppColors.backgroundAlt,
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'Datos consolidados a partir de la búsqueda manual y del último historial de validación.',
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: AppColors.onSurfaceMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            LemaPanel(
-              color: AppColors.surfaceLow,
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Información del acceso',
-                    style: textTheme.labelSmall?.copyWith(
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  GridView.count(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    childAspectRatio: 1.65,
-                    children: const [
-                      _DetailCard(
-                        label: 'Estado',
-                        value: 'Pendiente de confirmación',
-                        icon: Icons.pending_actions_outlined,
-                        accent: AppColors.warning,
-                      ),
-                      _DetailCard(
-                        label: 'Validaciones',
-                        value: '2 correctas',
-                        icon: Icons.verified_outlined,
-                        accent: AppColors.secondary,
-                      ),
-                      _DetailCard(
-                        label: 'Canal',
-                        value: 'Búsqueda manual',
-                        icon: Icons.search_outlined,
-                        accent: AppColors.primary,
-                      ),
-                      _DetailCard(
-                        label: 'Última puerta',
-                        value: 'Acceso principal',
-                        icon: Icons.storefront_outlined,
-                        accent: AppColors.onSurfaceMuted,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            LemaPanel(
-              color: AppColors.surface,
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'Historial de validación',
-                        style: textTheme.titleLarge,
-                      ),
-                      const Spacer(),
-                      const LemaTag(
-                        label: '3 eventos',
-                        color: AppColors.surfaceHigh,
-                        textColor: AppColors.onSurface,
-                        icon: Icons.history,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  for (var i = 0; i < validationHistory.length; i++) ...[
-                    _ValidationRow(event: validationHistory[i]),
-                    if (i != validationHistory.length - 1)
-                      const SizedBox(height: 12),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            LemaPanel(
-              color: AppColors.surfaceLow,
-              padding: const EdgeInsets.all(18),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.info_outline,
-                    color: AppColors.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Confirma el acceso manual solo si el nombre y el pedido coinciden con el listado del evento.',
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: AppColors.onSurfaceMuted,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            LemaPrimaryButton(
-              label: 'Confirmar acceso manual',
-              icon: Icons.verified_user_outlined,
-              onPressed: onConfirmManualAccess,
-            ),
-            const SizedBox(height: 10),
             Text(
-              'La confirmación queda registrada para el flujo operativo actual.',
-              textAlign: TextAlign.center,
-              style: textTheme.labelMedium?.copyWith(
-                color: AppColors.onSurfaceMuted,
-              ),
+              'DETALLE DEL TICKET',
+              style: textTheme.labelSmall?.copyWith(color: AppColors.primary),
             ),
+            const SizedBox(height: 8),
+            Text('Revisión manual', style: textTheme.displayMedium),
+            const SizedBox(height: 20),
+            if (selection == null) ...[
+              const _EmptySelectionPanel(),
+            ] else ...[
+              detailAsync.when(
+                loading: () => const _LoadingPanel(),
+                error: (error, stackTrace) => _ErrorPanel(error: error),
+                data: (detail) => _DetailContent(
+                  detail: detail,
+                  selection: selection,
+                  actionState: actionState,
+                  onConfirm: () async {
+                    await ref
+                        .read(accessTicketCheckInControllerProvider.notifier)
+                        .confirmSelectedTicket();
+                    if (ref
+                            .read(accessTicketCheckInControllerProvider)
+                            .status ==
+                        AccessActionStatus.success) {
+                      onConfirmManualAccess?.call();
+                    }
+                  },
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -298,50 +65,174 @@ class TicketDetailScreen extends StatelessWidget {
   }
 }
 
-class _DetailCard extends StatelessWidget {
-  const _DetailCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.accent,
+class _DetailContent extends StatelessWidget {
+  const _DetailContent({
+    required this.detail,
+    required this.selection,
+    required this.actionState,
+    required this.onConfirm,
   });
 
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color accent;
+  final AccessTicketDetail detail;
+  final AccessTicketSelection selection;
+  final AccessTicketCheckInState actionState;
+  final Future<void> Function() onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final status = _ticketStatusPresentation(detail.ticket.status);
+    final canCheckIn =
+        detail.canCheckIn &&
+        actionState.isLoading == false &&
+        actionState.status != AccessActionStatus.success;
+    final lastScanResult = detail.lastScanResult;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        LemaPanel(
+          color: AppColors.surfaceHighest,
+          borderColor: AppColors.outlineVariant.withValues(alpha: 0.18),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          detail.attendee.fullName ?? 'Sin nombre',
+                          style: textTheme.displayMedium?.copyWith(
+                            color: AppColors.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          detail.ticketType.name ?? 'Tipo de ticket',
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: AppColors.onSurfaceMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  LemaStatusPill(label: status.label, color: status.accent),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Código ${detail.ticket.code} · Pedido ${detail.order.id}',
+                style: textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onSurfaceMuted,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  LemaTag(
+                    label: selection.matchReason.label,
+                    color: AppColors.surfaceHigh,
+                    textColor: AppColors.primary,
+                    icon: Icons.search_outlined,
+                  ),
+                  LemaTag(
+                    label: detail.ticket.canCheckIn
+                        ? 'Confirmable'
+                        : 'Bloqueado',
+                    color: AppColors.surfaceHigh,
+                    textColor: detail.ticket.canCheckIn
+                        ? AppColors.secondary
+                        : AppColors.warning,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        LemaPanel(
+          color: AppColors.surfaceLow,
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DetailRow(label: 'Canal', value: selection.matchReason.label),
+              const SizedBox(height: 12),
+              _DetailRow(label: 'Último estado', value: status.label),
+              if (lastScanResult != null) ...[
+                const SizedBox(height: 12),
+                _DetailRow(
+                  label: 'Último resultado',
+                  value:
+                      '${lastScanResult.result.label} · ${lastScanResult.reasonCode}',
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (detail.validationHistory.isNotEmpty)
+          LemaPanel(
+            color: AppColors.surface,
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Historial', style: textTheme.titleLarge),
+                const SizedBox(height: 14),
+                for (var i = 0; i < detail.validationHistory.length; i++) ...[
+                  _ValidationRow(event: detail.validationHistory[i]),
+                  if (i != detail.validationHistory.length - 1)
+                    const SizedBox(height: 10),
+                ],
+              ],
+            ),
+          ),
+        if (detail.validationHistory.isNotEmpty) const SizedBox(height: 16),
+        LemaPrimaryButton(
+          label: actionState.isLoading
+              ? 'Confirmando...'
+              : 'Confirmar acceso manual',
+          icon: actionState.isLoading
+              ? Icons.hourglass_top
+              : Icons.verified_user_outlined,
+          onPressed: canCheckIn ? onConfirm : null,
+        ),
+        if (actionState.status == AccessActionStatus.failure) ...[
+          const SizedBox(height: 14),
+          _ActionErrorBanner(state: actionState),
+        ],
+      ],
+    );
+  }
+}
+
+class _EmptySelectionPanel extends StatelessWidget {
+  const _EmptySelectionPanel();
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceHigh,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: accent.withValues(alpha: 0.12)),
-      ),
+    return LemaPanel(
+      color: AppColors.surfaceLow,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 18, color: accent),
-          const SizedBox(height: 10),
-          Text(
-            label.toUpperCase(),
-            style: textTheme.labelSmall?.copyWith(
-              color: AppColors.onSurfaceMuted,
-            ),
-          ),
+          Text('Sin ticket seleccionado', style: textTheme.titleLarge),
           const SizedBox(height: 6),
           Text(
-            value,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            'Abre un resultado de búsqueda para cargar su detalle.',
             style: textTheme.bodyMedium?.copyWith(
-              color: AppColors.onSurface,
-              fontWeight: FontWeight.w700,
+              color: AppColors.onSurfaceMuted,
             ),
           ),
         ],
@@ -350,99 +241,234 @@ class _DetailCard extends StatelessWidget {
   }
 }
 
-class _ValidationEvent {
-  const _ValidationEvent({
-    required this.title,
-    required this.detail,
-    required this.timestamp,
-    required this.state,
-  });
+class _LoadingPanel extends StatelessWidget {
+  const _LoadingPanel();
 
-  final String title;
-  final String detail;
-  final String timestamp;
-  final TicketState state;
+  @override
+  Widget build(BuildContext context) {
+    return const LemaPanel(
+      color: AppColors.surfaceLow,
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 40),
+          child: CircularProgressIndicator(strokeWidth: 2.4),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorPanel extends StatelessWidget {
+  const _ErrorPanel({required this.error});
+
+  final Object error;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final AccessRpcException? rpcError = error is AccessRpcException
+        ? error as AccessRpcException
+        : null;
+    final message = rpcError?.message ?? error.toString();
+    final code = rpcError?.code ?? 'UNKNOWN_ERROR';
+
+    return LemaPanel(
+      color: AppColors.error.withValues(alpha: 0.08),
+      borderColor: AppColors.error.withValues(alpha: 0.24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('No se pudo cargar el detalle', style: textTheme.titleLarge),
+          const SizedBox(height: 6),
+          Text(
+            code,
+            style: textTheme.labelSmall?.copyWith(color: AppColors.error),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurfaceMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionErrorBanner extends StatelessWidget {
+  const _ActionErrorBanner({required this.state});
+
+  final AccessTicketCheckInState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return LemaPanel(
+      color: AppColors.error.withValues(alpha: 0.08),
+      borderColor: AppColors.error.withValues(alpha: 0.24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            state.code ?? 'ERROR',
+            style: textTheme.labelSmall?.copyWith(color: AppColors.error),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            state.message ?? 'No se pudo confirmar el acceso.',
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurfaceMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 108,
+          child: Text(
+            label.toUpperCase(),
+            style: textTheme.labelSmall?.copyWith(
+              color: AppColors.onSurfaceMuted,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurface,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _ValidationRow extends StatelessWidget {
   const _ValidationRow({required this.event});
 
-  final _ValidationEvent event;
+  final AccessTicketScanLog event;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final tone = toneForState(event.state);
+    final result = event.result;
+    final accent = _resultAccent(result);
 
-    return LemaPanel(
-      padding: EdgeInsets.zero,
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            Container(
-              width: 4,
-              decoration: BoxDecoration(
-                color: tone.accent,
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(10),
+    return LemaStatusStripCard(
+      accent: accent,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${result.label} · ${event.reasonCode}',
+                  style: textTheme.bodyLarge,
                 ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: tone.accent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(tone.icon, color: tone.accent, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            event.title,
-                            style: textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            event.detail,
-                            style: textTheme.labelSmall?.copyWith(
-                              color: AppColors.onSurfaceMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          event.timestamp,
-                          style: textTheme.labelSmall?.copyWith(
-                            color: AppColors.onSurfaceMuted,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        LemaStatusPill(label: tone.label, color: tone.accent),
-                      ],
-                    ),
-                  ],
+                const SizedBox(height: 4),
+                Text(
+                  '${event.source} · ${event.actor.displayLabel}',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurfaceMuted,
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            _formatDateTime(event.createdAt),
+            style: textTheme.labelSmall?.copyWith(
+              color: AppColors.onSurfaceMuted,
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _TicketStatusPresentation {
+  const _TicketStatusPresentation({required this.label, required this.accent});
+
+  final String label;
+  final Color accent;
+}
+
+_TicketStatusPresentation _ticketStatusPresentation(String status) {
+  switch (status) {
+    case 'issued':
+      return const _TicketStatusPresentation(
+        label: 'Pendiente',
+        accent: AppColors.warning,
+      );
+    case 'checked_in':
+      return const _TicketStatusPresentation(
+        label: 'Usado',
+        accent: AppColors.success,
+      );
+    case 'cancelled':
+    case 'voided':
+      return const _TicketStatusPresentation(
+        label: 'Cancelado',
+        accent: AppColors.error,
+      );
+    default:
+      return const _TicketStatusPresentation(
+        label: 'Desconocido',
+        accent: AppColors.onSurfaceMuted,
+      );
+  }
+}
+
+Color _resultAccent(TicketAccessResultCode result) {
+  switch (result) {
+    case TicketAccessResultCode.valid:
+      return AppColors.success;
+    case TicketAccessResultCode.alreadyUsed:
+      return AppColors.warning;
+    case TicketAccessResultCode.cancelledOrInvalid:
+      return AppColors.error;
+    case TicketAccessResultCode.notFound:
+      return AppColors.onSurfaceMuted;
+    case TicketAccessResultCode.wrongEvent:
+      return AppColors.secondary;
+    case TicketAccessResultCode.forbidden:
+      return AppColors.error;
+    case TicketAccessResultCode.temporaryError:
+      return AppColors.warning;
+  }
+}
+
+String _formatDateTime(DateTime dateTime) {
+  final local = dateTime.toLocal();
+  final day = local.day.toString().padLeft(2, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$day/$month $hour:$minute';
 }

@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../access/scan/access_scan_models.dart';
+import '../access/scan/access_scan_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
 
-class ManualCodeScreen extends StatefulWidget {
+class ManualCodeScreen extends ConsumerStatefulWidget {
   const ManualCodeScreen({super.key, this.onSubmitCode, this.onOpenSearch});
 
   final VoidCallback? onSubmitCode;
   final VoidCallback? onOpenSearch;
 
   @override
-  State<ManualCodeScreen> createState() => _ManualCodeScreenState();
+  ConsumerState<ManualCodeScreen> createState() => _ManualCodeScreenState();
 }
 
-class _ManualCodeScreenState extends State<ManualCodeScreen> {
+class _ManualCodeScreenState extends ConsumerState<ManualCodeScreen> {
   final TextEditingController _codeController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
 
@@ -26,22 +29,27 @@ class _ManualCodeScreenState extends State<ManualCodeScreen> {
     super.dispose();
   }
 
-  void _append(String value) {
-    final nextValue = '${_codeController.text}$value';
-    _codeController.value = TextEditingValue(
-      text: nextValue,
-      selection: TextSelection.collapsed(offset: nextValue.length),
-    );
-    setState(() {});
-  }
-
-  void _backspace() {
-    final text = _codeController.text;
-    if (text.isEmpty) {
+  Future<void> _previewCode() async {
+    final rawCode = _codeController.text.trim();
+    if (rawCode.isEmpty) {
       return;
     }
 
-    final nextValue = text.substring(0, text.length - 1);
+    final outcome = await ref
+        .read(accessScanControllerProvider.notifier)
+        .previewManualInput(rawCode);
+
+    if (!mounted || outcome == null) {
+      return;
+    }
+
+    if (outcome.canCheckIn && widget.onSubmitCode != null) {
+      widget.onSubmitCode?.call();
+    }
+  }
+
+  void _append(String value) {
+    final nextValue = '${_codeController.text}$value';
     _codeController.value = TextEditingValue(
       text: nextValue,
       selection: TextSelection.collapsed(offset: nextValue.length),
@@ -54,211 +62,232 @@ class _ManualCodeScreenState extends State<ManualCodeScreen> {
     setState(() {});
   }
 
-  void _submit() {
-    widget.onSubmitCode?.call();
-  }
-
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(accessScanControllerProvider);
     final textTheme = Theme.of(context).textTheme;
     final hasCode = _codeController.text.trim().isNotEmpty;
+    final isProcessing = state is AccessScanProcessing;
+    final AccessScanOutcome? previewOutcome = switch (state) {
+      AccessScanSuccess(:final outcome)
+          when outcome.stage == AccessScanStage.preview =>
+        outcome,
+      _ => null,
+    };
 
     return LemaScaffold(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minHeight:
-                MediaQuery.of(context).size.height -
-                MediaQuery.of(context).padding.vertical -
-                42,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'ENTRADA MANUAL',
+              style: textTheme.labelSmall?.copyWith(color: AppColors.primary),
+            ),
+            const SizedBox(height: 8),
+            Text('Código del ticket', style: textTheme.displayMedium),
+            const SizedBox(height: 20),
+            LemaPanel(
+              color: AppColors.surfaceHighest,
+              borderColor: AppColors.outlineVariant.withValues(alpha: 0.18),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(10),
+                  TextField(
+                    controller: _codeController,
+                    focusNode: _focusNode,
+                    textCapitalization: TextCapitalization.characters,
+                    keyboardType: TextInputType.text,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'[A-Za-z0-9\-]'),
+                      ),
+                      LengthLimitingTextInputFormatter(48),
+                    ],
+                    style: textTheme.headlineMedium?.copyWith(
+                      color: AppColors.primary,
+                      letterSpacing: 1.6,
                     ),
-                    child: const Icon(
-                      Icons.keyboard_alt_outlined,
-                      color: AppColors.black,
-                      size: 20,
+                    decoration: const InputDecoration(
+                      labelText: 'Código',
+                      hintText: 'LEMA-4831',
                     ),
+                    onChanged: (_) => setState(() {}),
+                    onSubmitted: (_) => _previewCode(),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Entrada manual',
-                          style: textTheme.labelSmall?.copyWith(
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text('Código del ticket', style: textTheme.titleLarge),
-                      ],
-                    ),
-                  ),
-                  LemaTag(
-                    label: 'Operativo',
-                    color: AppColors.surfaceHigh,
-                    textColor: AppColors.primary,
-                    icon: Icons.bolt,
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      _QuickActionChip(
+                        label: 'Limpiar',
+                        icon: Icons.clear_all,
+                        onTap: _clear,
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 22),
-              LemaPanel(
-                color: AppColors.surfaceHighest,
-                borderColor: AppColors.outlineVariant.withValues(alpha: 0.18),
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Introduce el código',
-                      style: textTheme.displayMedium?.copyWith(
-                        color: AppColors.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Escribe o pega el código exacto del ticket para validar la entrada manualmente.',
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: AppColors.onSurfaceMuted,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    TextField(
-                      controller: _codeController,
-                      focusNode: _focusNode,
-                      textCapitalization: TextCapitalization.characters,
-                      keyboardType: TextInputType.text,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'[A-Za-z0-9\-]'),
-                        ),
-                        LengthLimitingTextInputFormatter(24),
-                      ],
-                      style: textTheme.headlineMedium?.copyWith(
-                        color: AppColors.primary,
-                        letterSpacing: 1.6,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: 'Código',
-                        hintText: 'LEMA-4831',
-                      ),
-                      onChanged: (_) => setState(() {}),
-                      onSubmitted: (_) => _submit(),
-                    ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        _QuickActionChip(
-                          label: 'Pegar ejemplo',
-                          icon: Icons.content_paste,
-                          onTap: () {
-                            _codeController.text = 'LEMA-4831';
-                            _codeController.selection = TextSelection.collapsed(
-                              offset: _codeController.text.length,
-                            );
-                            setState(() {});
-                          },
-                        ),
-                        _QuickActionChip(
-                          label: 'Limpiar',
-                          icon: Icons.clear_all,
-                          onTap: _clear,
-                        ),
-                        _QuickActionChip(
-                          label: 'Borrar',
-                          icon: Icons.backspace_outlined,
-                          onTap: _backspace,
-                        ),
-                        _QuickActionChip(
-                          label: 'Pegar último',
-                          icon: Icons.history,
-                          onTap: () {
-                            _codeController.text = 'LEMA-8932';
-                            _codeController.selection = TextSelection.collapsed(
-                              offset: _codeController.text.length,
-                            );
-                            setState(() {});
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 16),
+            LemaPanel(
+              color: AppColors.surfaceLow,
+              padding: const EdgeInsets.all(18),
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final digit in const [
+                    '1',
+                    '2',
+                    '3',
+                    '4',
+                    '5',
+                    '6',
+                    '7',
+                    '8',
+                    '9',
+                    '0',
+                    '-',
+                  ])
+                    _DigitChip(label: digit, onTap: () => _append(digit)),
+                ],
               ),
-              const SizedBox(height: 16),
-              LemaPanel(
-                color: AppColors.surfaceLow,
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Acceso rápido',
-                      style: textTheme.labelSmall?.copyWith(
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        _DigitChip(label: '1', onTap: () => _append('1')),
-                        _DigitChip(label: '2', onTap: () => _append('2')),
-                        _DigitChip(label: '3', onTap: () => _append('3')),
-                        _DigitChip(label: '4', onTap: () => _append('4')),
-                        _DigitChip(label: '5', onTap: () => _append('5')),
-                        _DigitChip(label: '6', onTap: () => _append('6')),
-                        _DigitChip(label: '7', onTap: () => _append('7')),
-                        _DigitChip(label: '8', onTap: () => _append('8')),
-                        _DigitChip(label: '9', onTap: () => _append('9')),
-                        _DigitChip(label: '0', onTap: () => _append('0')),
-                        _DigitChip(label: '-', onTap: () => _append('-')),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-              LemaPrimaryButton(
-                label: 'Validar código',
-                icon: Icons.check_circle_outline,
-                onPressed: hasCode ? _submit : null,
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: widget.onOpenSearch,
-                icon: const Icon(Icons.search),
-                label: const Text('Buscar manualmente'),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Si el código no coincide, usa la búsqueda manual para localizar el ticket.',
-                textAlign: TextAlign.center,
-                style: textTheme.labelMedium?.copyWith(
+            ),
+            const SizedBox(height: 18),
+            LemaPrimaryButton(
+              label: isProcessing ? 'Resolviendo...' : 'Revisar ticket',
+              icon: isProcessing ? Icons.timelapse : Icons.check_circle_outline,
+              onPressed: hasCode && !isProcessing ? _previewCode : null,
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: widget.onOpenSearch,
+              icon: const Icon(Icons.search),
+              label: const Text('Buscar manualmente'),
+            ),
+            const SizedBox(height: 12),
+            _ManualPreviewCard(state: state, outcome: previewOutcome),
+            const OperatorShellBottomSpacer(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ManualPreviewCard extends StatelessWidget {
+  const _ManualPreviewCard({required this.state, required this.outcome});
+
+  final AccessScanState state;
+  final AccessScanOutcome? outcome;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    if (state is AccessScanIdle) {
+      return Text(
+        'Introduce un código o usa la búsqueda manual.',
+        textAlign: TextAlign.center,
+        style: textTheme.labelMedium?.copyWith(color: AppColors.onSurfaceMuted),
+      );
+    }
+
+    if (state is AccessScanProcessing) {
+      return LemaPanel(
+        color: AppColors.surfaceLow,
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Resolviendo ticket...',
+                style: textTheme.bodyMedium?.copyWith(
                   color: AppColors.onSurfaceMuted,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      );
+    }
+
+    if (state is AccessScanFailure) {
+      final failure = state as AccessScanFailure;
+      return LemaPanel(
+        color: AppColors.surfaceLow,
+        borderColor: AppColors.error.withValues(alpha: 0.24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              failure.failure.code,
+              style: textTheme.titleLarge?.copyWith(color: AppColors.error),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              failure.failure.message,
+              style: textTheme.bodyMedium?.copyWith(
+                color: AppColors.onSurfaceMuted,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (outcome == null) {
+      return const SizedBox.shrink();
+    }
+
+    final resolvedOutcome = outcome!;
+    final variant = accessScanUiVariantForResultCode(
+      resolvedOutcome.resultCode,
+    );
+    final accent = switch (variant) {
+      AccessScanUiVariant.valid => AppColors.success,
+      AccessScanUiVariant.used => AppColors.warning,
+      AccessScanUiVariant.invalid => AppColors.error,
+      AccessScanUiVariant.notFound => const Color(0xFF9CA3AF),
+      AccessScanUiVariant.networkError => AppColors.error,
+    };
+
+    return LemaStatusStripCard(
+      accent: accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            accessScanHeadlineForResultCode(resolvedOutcome.resultCode),
+            style: textTheme.titleLarge?.copyWith(color: accent),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            accessScanBodyForResultCode(resolvedOutcome.resultCode),
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurfaceMuted,
+            ),
+          ),
+          if (resolvedOutcome.ticket != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              '${resolvedOutcome.ticket!.displayName} · ${resolvedOutcome.ticket!.code}',
+              style: textTheme.labelMedium?.copyWith(
+                color: AppColors.onSurfaceMuted,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

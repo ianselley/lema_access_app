@@ -1,214 +1,133 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/demo_models.dart';
+import '../access/core/access_failure.dart';
+import '../access/events/access_event_ui.dart';
+import '../access/models/access_models.dart';
+import '../access/providers/access_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
 
-class EventHomeScreen extends StatelessWidget {
-  const EventHomeScreen({super.key, this.onOpenScanner, this.onOpenHistory});
+class EventHomeScreen extends ConsumerWidget {
+  const EventHomeScreen({
+    super.key,
+    required this.eventId,
+    this.onOpenScanner,
+    this.onOpenHistory,
+  });
 
+  final String eventId;
   final VoidCallback? onOpenScanner;
   final VoidCallback? onOpenHistory;
 
   @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (eventId.trim().isEmpty) {
+      return LemaScaffold(
+        body: _MissingEventState(
+          onOpenScanner: onOpenScanner,
+          onOpenHistory: onOpenHistory,
+        ),
+      );
+    }
 
-    final history = <HistoryEntry>[
-      const HistoryEntry(
-        name: 'Alejandro García',
-        ticketType: 'VIP Access',
-        timeAgo: '2 min',
-        status: TicketState.valid,
-      ),
-      const HistoryEntry(
-        name: 'Lucía Torres',
-        ticketType: 'General Entry',
-        timeAgo: '5 min',
-        status: TicketState.valid,
-      ),
-      const HistoryEntry(
-        name: 'Marco Beltrán',
-        ticketType: 'VIP Access',
-        timeAgo: '12 min',
-        status: TicketState.valid,
-      ),
-      const HistoryEntry(
-        name: 'Elena Rivas',
-        ticketType: 'Guest List',
-        timeAgo: '18 min',
-        status: TicketState.valid,
-      ),
-    ];
+    final asyncHome = ref.watch(accessEventHomeProvider(eventId));
 
-    return LemaScaffold(
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _TopHero(eventName: 'Terminal Alpha', onOpenHistory: onOpenHistory),
-            const SizedBox(height: 20),
-            LemaPanel(
-              padding: const EdgeInsets.all(18),
-              color: AppColors.surfaceHighest,
-              borderColor: AppColors.outlineVariant.withValues(alpha: 0.2),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Progreso de acceso',
-                              style: textTheme.labelSmall?.copyWith(
-                                color: AppColors.onSurfaceMuted,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              '68%',
-                              style: textTheme.displayLarge?.copyWith(
-                                color: AppColors.primary,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '342 entradas validadas de 500',
-                              style: textTheme.bodyMedium?.copyWith(
-                                color: AppColors.onSurfaceMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: AppColors.background.withValues(alpha: 0.28),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.analytics_outlined,
-                          color: AppColors.onSurfaceMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  LemaProgressBar(
-                    value: 0.68,
-                    color: AppColors.primaryStrong,
-                    background: AppColors.backgroundAlt,
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _MetricCard(
-                          label: 'Validados',
-                          value: '342',
-                          accent: AppColors.secondary,
-                          icon: Icons.verified_outlined,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _MetricCard(
-                          label: 'Pendientes',
-                          value: '158',
-                          accent: AppColors.primary,
-                          icon: Icons.hourglass_bottom_outlined,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 22),
-            LemaSectionHeading(
-              kicker: 'Operación',
-              title: 'Historial reciente',
-              trailing: onOpenHistory == null
-                  ? null
-                  : TextButton(
-                      onPressed: onOpenHistory,
-                      child: const Text('Ver todo'),
-                    ),
-            ),
-            const SizedBox(height: 14),
-            Column(
+    return asyncHome.when(
+      loading: () => const LemaScaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      ),
+      error: (error, stackTrace) => LemaScaffold(
+        body: _EventHomeErrorState(
+          error: error,
+          onRetry: () => ref.invalidate(accessEventHomeProvider(eventId)),
+        ),
+      ),
+      data: (home) {
+        final history = home.recentHistoryPreview.take(3).toList();
+
+        return LemaScaffold(
+          body: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final entry in history)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _HistoryRow(entry: entry),
+                _TopHero(
+                  eventName: home.displayName,
+                  eventLocation: home.locationLabel,
+                  membershipLabel: home.membershipLabel,
+                  statusLabel: home.statusLabel,
+                  progressLabel: home.progressLabel,
+                  capacityLabel: home.capacityLabel,
+                  checkedInCount: home.counters.checkedInCount,
+                  pendingCount: home.counters.pendingCheckInCount,
+                  progress: home.progress,
+                  onOpenScanner: onOpenScanner,
+                  onOpenHistory: onOpenHistory,
+                ),
+                const SizedBox(height: 24),
+                LemaSectionHeading(
+                  kicker: 'Actividad',
+                  title: 'Últimos accesos',
+                  trailing: onOpenHistory == null
+                      ? null
+                      : TextButton(
+                          onPressed: onOpenHistory,
+                          child: const Text('Ver todo'),
+                        ),
+                ),
+                const SizedBox(height: 14),
+                if (history.isEmpty)
+                  const _EmptyHistoryState()
+                else
+                  Column(
+                    children: [
+                      for (var index = 0; index < history.length; index++)
+                        Padding(
+                          padding: EdgeInsets.only(
+                            bottom: index == history.length - 1 ? 0 : 10,
+                          ),
+                          child: _HistoryRow(entry: history[index]),
+                        ),
+                    ],
                   ),
               ],
             ),
-            const SizedBox(height: 12),
-            LemaPanel(
-              padding: const EdgeInsets.all(18),
-              color: AppColors.surfaceLow,
-              borderColor: AppColors.outlineVariant.withValues(alpha: 0.18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Acción principal',
-                    style: textTheme.labelSmall?.copyWith(
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Iniciar escaneo',
-                    style: textTheme.headlineMedium?.copyWith(
-                      color: AppColors.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Abre el escáner activo y continúa con la validación de entradas en tiempo real.',
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: AppColors.onSurfaceMuted,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  LemaPrimaryButton(
-                    label: 'Empezar a escanear',
-                    icon: Icons.qr_code_scanner,
-                    onPressed: onOpenScanner,
-                  ),
-                  if (onOpenHistory != null) ...[
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: onOpenHistory,
-                      icon: const Icon(Icons.history),
-                      label: const Text('Revisar historial'),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
 
 class _TopHero extends StatelessWidget {
-  const _TopHero({required this.eventName, this.onOpenHistory});
+  const _TopHero({
+    required this.eventName,
+    required this.eventLocation,
+    required this.membershipLabel,
+    required this.statusLabel,
+    required this.progressLabel,
+    required this.capacityLabel,
+    required this.checkedInCount,
+    required this.pendingCount,
+    required this.progress,
+    this.onOpenScanner,
+    this.onOpenHistory,
+  });
 
   final String eventName;
+  final String eventLocation;
+  final String membershipLabel;
+  final String statusLabel;
+  final String progressLabel;
+  final String capacityLabel;
+  final int checkedInCount;
+  final int pendingCount;
+  final double progress;
+  final VoidCallback? onOpenScanner;
   final VoidCallback? onOpenHistory;
 
   @override
@@ -229,22 +148,22 @@ class _TopHero extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    LemaTag(
-                      label: 'Gestión de flujo',
-                      color: AppColors.surfaceHigh,
-                      textColor: AppColors.secondary,
-                      icon: Icons.bolt,
+                    Text(
+                      'EVENTO ACTIVO',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: AppColors.primary,
+                      ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     Text(
                       eventName,
                       style: textTheme.displayLarge?.copyWith(
                         color: AppColors.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Text(
-                      'Pabellón 8 - IFEMA Madrid',
+                      eventLocation,
                       style: textTheme.bodyMedium?.copyWith(
                         color: AppColors.onSurfaceMuted,
                       ),
@@ -260,88 +179,61 @@ class _TopHero extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           Wrap(
             spacing: 10,
             runSpacing: 10,
-            children: const [
-              LemaTag(
-                label: 'Activo',
+            children: [
+              LemaStatusPill(
+                label: statusLabel,
                 color: AppColors.primaryStrong,
-                textColor: AppColors.black,
-                icon: Icons.circle,
               ),
               LemaTag(
-                label: '68% completo',
+                label: membershipLabel,
                 color: AppColors.surfaceHigh,
                 textColor: AppColors.onSurface,
-                icon: Icons.trending_up,
-              ),
-              LemaTag(
-                label: '342 validados',
-                color: AppColors.surfaceHigh,
-                textColor: AppColors.onSurface,
-                icon: Icons.verified,
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({
-    required this.label,
-    required this.value,
-    required this.accent,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final Color accent;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return LemaPanel(
-      padding: const EdgeInsets.all(14),
-      color: AppColors.background,
-      borderColor: accent.withValues(alpha: 0.18),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: accent, size: 20),
+          const SizedBox(height: 18),
+          Text(
+            progressLabel,
+            style: textTheme.headlineLarge?.copyWith(color: AppColors.primary),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 10),
+          LemaProgressBar(
+            value: progress,
+            color: AppColors.primaryStrong,
+            background: AppColors.backgroundAlt,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '$checkedInCount accesos validados · $pendingCount pendientes · $capacityLabel',
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurfaceMuted,
+            ),
+          ),
+          if (onOpenScanner != null || onOpenHistory != null) ...[
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
               children: [
-                Text(
-                  label,
-                  style: textTheme.labelSmall?.copyWith(
-                    color: AppColors.onSurfaceMuted,
+                if (onOpenScanner != null)
+                  LemaPrimaryButton(
+                    label: 'Empezar a escanear',
+                    icon: Icons.qr_code_scanner,
+                    onPressed: onOpenScanner,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: textTheme.headlineMedium?.copyWith(color: accent),
-                ),
+                if (onOpenHistory != null)
+                  OutlinedButton.icon(
+                    onPressed: onOpenHistory,
+                    icon: const Icon(Icons.history),
+                    label: const Text('Ver historial'),
+                  ),
               ],
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -351,12 +243,11 @@ class _MetricCard extends StatelessWidget {
 class _HistoryRow extends StatelessWidget {
   const _HistoryRow({required this.entry});
 
-  final HistoryEntry entry;
+  final AccessHistoryItem entry;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final tone = toneForState(entry.status);
 
     return LemaPanel(
       padding: EdgeInsets.zero,
@@ -366,7 +257,7 @@ class _HistoryRow extends StatelessWidget {
             Container(
               width: 4,
               decoration: BoxDecoration(
-                color: tone.accent,
+                color: entry.resultColor,
                 borderRadius: const BorderRadius.horizontal(
                   left: Radius.circular(10),
                 ),
@@ -377,22 +268,12 @@ class _HistoryRow extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceHigh,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.person, size: 20),
-                    ),
-                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            entry.name,
+                            entry.titleLabel,
                             style: textTheme.titleMedium?.copyWith(
                               color: AppColors.onSurface,
                               fontWeight: FontWeight.w800,
@@ -400,30 +281,147 @@ class _HistoryRow extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            entry.ticketType,
-                            style: textTheme.labelSmall?.copyWith(
+                            entry.subtitleLabel,
+                            style: textTheme.labelMedium?.copyWith(
                               color: AppColors.onSurfaceMuted,
                             ),
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 12),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          entry.timeAgo,
+                          entry.relativeTimeLabel,
                           style: textTheme.labelSmall?.copyWith(
                             color: AppColors.onSurfaceMuted,
                           ),
                         ),
                         const SizedBox(height: 8),
-                        LemaStatusPill(label: tone.label, color: tone.accent),
+                        LemaStatusPill(
+                          label: entry.resultLabel,
+                          color: entry.resultColor,
+                        ),
                       ],
                     ),
                   ],
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyHistoryState extends StatelessWidget {
+  const _EmptyHistoryState();
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return LemaPanel(
+      color: AppColors.surfaceLow,
+      child: Text(
+        'Todavía no hay actividad reciente para este evento.',
+        style: textTheme.bodyMedium?.copyWith(color: AppColors.onSurfaceMuted),
+      ),
+    );
+  }
+}
+
+class _MissingEventState extends StatelessWidget {
+  const _MissingEventState({this.onOpenScanner, this.onOpenHistory});
+
+  final VoidCallback? onOpenScanner;
+  final VoidCallback? onOpenHistory;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Center(
+      child: LemaPanel(
+        color: AppColors.surfaceLow,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Selecciona un evento', style: textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(
+              'Necesitas un evento activo antes de abrir este panel.',
+              style: textTheme.bodyMedium?.copyWith(
+                color: AppColors.onSurfaceMuted,
+              ),
+            ),
+            if (onOpenScanner != null || onOpenHistory != null) ...[
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  if (onOpenScanner != null)
+                    OutlinedButton.icon(
+                      onPressed: onOpenScanner,
+                      icon: const Icon(Icons.qr_code_scanner),
+                      label: const Text('Escáner'),
+                    ),
+                  if (onOpenHistory != null)
+                    OutlinedButton.icon(
+                      onPressed: onOpenHistory,
+                      icon: const Icon(Icons.history),
+                      label: const Text('Historial'),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EventHomeErrorState extends StatelessWidget {
+  const _EventHomeErrorState({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final accessFailure = error is AccessFailure
+        ? error as AccessFailure
+        : null;
+    final message =
+        accessFailure?.message ?? 'No se pudo cargar el home del evento.';
+
+    return Center(
+      child: LemaPanel(
+        color: AppColors.surfaceLow,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Error de evento', style: textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: textTheme.bodyMedium?.copyWith(
+                color: AppColors.onSurfaceMuted,
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
             ),
           ],
         ),

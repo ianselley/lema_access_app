@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'screens/operator_demo_app.dart';
+import 'access/auth/access_gate_screen.dart';
 import 'theme/app_theme.dart';
 
 class LemaAccessApp extends StatelessWidget {
@@ -12,7 +12,7 @@ class LemaAccessApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'LEMA Access',
       theme: AppTheme.build(),
-      home: const OperatorDemoApp(),
+      home: const AccessGateScreen(),
     );
   }
 }
