@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../access/scan/access_scan_models.dart';
-import '../access/scan/access_scan_providers.dart';
+import '../core/scan_input_normalizer.dart';
+import '../models/scan_models.dart';
+import '../providers/scan_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
@@ -23,46 +24,63 @@ class InvalidResultScreen extends ConsumerWidget {
         outcome,
       _ => null,
     };
-    final textTheme = Theme.of(context).textTheme;
+    final referenceLabel = _scanReferenceLabel(outcome);
+    final facts = <LemaResultFact>[
+      if (referenceLabel != null)
+        LemaResultFact(
+          label: 'Referencia',
+          value: referenceLabel,
+          icon: Icons.pin_outlined,
+        ),
+      if (outcome?.reasonCode != null)
+        LemaResultFact(
+          label: 'Motivo',
+          value: outcome!.reasonCode!,
+          icon: Icons.rule_folder_outlined,
+        ),
+      if (outcome?.ticket?.ticketTypeLabel != null)
+        LemaResultFact(
+          label: 'Tipo',
+          value: outcome!.ticket!.ticketTypeLabel,
+          icon: Icons.confirmation_number_outlined,
+        ),
+      if (outcome?.scanLog?.createdAt != null)
+        LemaResultFact(
+          label: 'Intento',
+          value: _formatDateTime(outcome!.scanLog!.createdAt!),
+          icon: Icons.schedule_rounded,
+        ),
+    ];
 
     return LemaScaffold(
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'VALIDACIÓN RECHAZADA',
-            style: textTheme.labelSmall?.copyWith(color: AppColors.error),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            outcome?.headline ?? 'Ticket inválido',
-            style: textTheme.displayMedium,
-          ),
-          const SizedBox(height: 20),
-          LemaStatusStripCard(
+      body: LemaResultScreenLayout(
+        accent: AppColors.error,
+        content: [
+          LemaResultHero(
+            kicker: 'Validación rechazada',
+            status: 'Acceso denegado',
             accent: AppColors.error,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  outcome?.body ?? 'No permitas el acceso con esta lectura.',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: AppColors.onSurfaceMuted,
-                  ),
-                ),
-                if (outcome?.reasonCode != null) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    outcome!.reasonCode ?? '',
-                    style: textTheme.labelSmall?.copyWith(
-                      color: AppColors.error,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            icon: Icons.block_rounded,
+            subject: outcome?.headline ?? 'Ticket inválido',
+            supporting: referenceLabel,
           ),
-          const Spacer(),
+          const SizedBox(height: 16),
+          LemaResultFocusCard(
+            accent: AppColors.error,
+            icon: Icons.do_not_disturb_on_rounded,
+            title: outcome?.headline ?? 'Ticket inválido',
+            meta: lemaJoinText([referenceLabel, outcome?.reasonCode]),
+            description:
+                outcome?.ticket?.ticketTypeDescriptionLabel ??
+                outcome?.body ??
+                'No permitas el acceso con esta lectura.',
+          ),
+          if (facts.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            LemaResultFacts(facts: facts, accent: AppColors.error),
+          ],
+        ],
+        actions: [
           LemaPrimaryButton(
             label: 'Continuar escaneando',
             icon: Icons.qr_code_scanner_rounded,
@@ -72,4 +90,33 @@ class InvalidResultScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+String? _scanReferenceLabel(AccessScanOutcome? outcome) {
+  if (outcome == null) {
+    return null;
+  }
+
+  final ticketCode = outcome.ticket?.code.trim();
+  if (ticketCode != null && ticketCode.isNotEmpty) {
+    return 'CODE: $ticketCode';
+  }
+
+  final token =
+      extractLemaTicketToken(outcome.rawInput)?.trim() ??
+      outcome.normalizedInput?.trim();
+  if (token != null && token.isNotEmpty) {
+    return 'TOKEN: $token';
+  }
+
+  return null;
+}
+
+String _formatDateTime(DateTime value) {
+  final local = value.toLocal();
+  final day = local.day.toString().padLeft(2, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$day/$month · $hour:$minute';
 }

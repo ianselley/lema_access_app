@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../access/scan/access_scan_models.dart';
-import '../access/scan/access_scan_providers.dart';
+import '../models/scan_models.dart';
+import '../providers/scan_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
@@ -26,30 +26,54 @@ class NotFoundResultScreen extends ConsumerWidget {
         outcome,
       _ => null,
     };
-    final textTheme = Theme.of(context).textTheme;
+    final facts = <LemaResultFact>[
+      if (outcome?.normalizedInput != null)
+        LemaResultFact(
+          label: 'Entrada',
+          value: outcome!.normalizedInput!,
+          icon: Icons.tag_rounded,
+        ),
+      if (outcome != null)
+        LemaResultFact(
+          label: 'Origen',
+          value: outcome.source.name,
+          icon: Icons.qr_code_scanner_rounded,
+        ),
+      if (outcome?.scanLog?.createdAt != null)
+        LemaResultFact(
+          label: 'Intento',
+          value: _formatDateTime(outcome!.scanLog!.createdAt!),
+          icon: Icons.schedule_rounded,
+        ),
+    ];
 
     return LemaScaffold(
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'NO ENCONTRADO',
-            style: textTheme.labelSmall?.copyWith(color: AppColors.primary),
+      body: LemaResultScreenLayout(
+        accent: AppColors.primary,
+        content: [
+          LemaResultHero(
+            kicker: 'Resultado del escaneo',
+            status: 'No encontrado',
+            accent: AppColors.primary,
+            icon: Icons.search_off_rounded,
+            subject: outcome?.headline ?? 'No encontramos ese ticket',
+            supporting: outcome?.normalizedInput,
           ),
-          const SizedBox(height: 8),
-          Text(
-            outcome?.headline ?? 'No encontramos ese ticket',
-            style: textTheme.displayMedium,
+          const SizedBox(height: 16),
+          LemaResultFocusCard(
+            accent: AppColors.primary,
+            icon: Icons.manage_search_rounded,
+            title: 'Búsqueda manual recomendada',
+            meta: outcome?.normalizedInput ?? 'Sin referencia disponible',
+            description:
+                'No existe una coincidencia directa para esta lectura. Prueba una búsqueda manual con nombre, email, teléfono, código o pedido.',
           ),
-          const SizedBox(height: 20),
-          LemaPanel(
-            color: AppColors.surfaceLow,
-            child: Text(
-              outcome?.normalizedInput ?? 'Sin referencia disponible',
-              style: textTheme.bodyLarge?.copyWith(color: AppColors.onSurface),
-            ),
-          ),
-          const Spacer(),
+          if (facts.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            LemaResultFacts(facts: facts, accent: AppColors.primary),
+          ],
+        ],
+        actions: [
           LemaPrimaryButton(
             label: 'Búsqueda manual',
             icon: Icons.search_rounded,
@@ -65,4 +89,13 @@ class NotFoundResultScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _formatDateTime(DateTime value) {
+  final local = value.toLocal();
+  final day = local.day.toString().padLeft(2, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$day/$month · $hour:$minute';
 }

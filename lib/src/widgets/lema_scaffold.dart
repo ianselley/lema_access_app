@@ -87,8 +87,11 @@ class LemaScaffold extends StatelessWidget {
         bottomNavigation ??
         OperatorShellScope.maybeOf(context)?.bottomNavigation;
     final navigationScope = OperatorNavigationScope.maybeOf(context);
+    final modalRoute = ModalRoute.of(context);
+    final isFirstRoute = modalRoute?.isFirst ?? true;
+    final isExplicitlyDisabled = navigationScope?.canGoBack == false;
     final showBackButton =
-        navigationScope?.canGoBack == true && navigationScope?.onBack != null;
+        !isExplicitlyDisabled && !isFirstRoute && navigationScope?.onBack != null;
     final topPadding = switch ((showBackButton, resolvedPadding.top)) {
       (true, final top) when top >= 16 => 2.0,
       (true, final top) when top >= 10 => 1.0,

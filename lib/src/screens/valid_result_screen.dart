@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../access/scan/access_scan_models.dart';
-import '../access/scan/access_scan_providers.dart';
+import '../models/scan_models.dart';
+import '../providers/scan_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
@@ -21,45 +21,68 @@ class ValidResultScreen extends ConsumerWidget {
       _ => null,
     };
     final ticket = outcome?.ticket;
-    final textTheme = Theme.of(context).textTheme;
+    final facts = <LemaResultFact>[
+      if (ticket != null)
+        LemaResultFact(
+          label: 'Tipo',
+          value: ticket.ticketTypeLabel,
+          icon: Icons.confirmation_number_outlined,
+        ),
+      if (ticket != null && ticket.code.isNotEmpty)
+        LemaResultFact(
+          label: 'Código',
+          value: ticket.code,
+          icon: Icons.qr_code_2_rounded,
+        ),
+      if (ticket != null)
+        LemaResultFact(
+          label: 'Pedido',
+          value: ticket.orderLabel,
+          icon: Icons.receipt_long_outlined,
+        ),
+      if (ticket?.checkedInAt != null)
+        LemaResultFact(
+          label: 'Registrado',
+          value: _formatDateTime(ticket!.checkedInAt!),
+          icon: Icons.schedule_rounded,
+        ),
+    ];
 
     return LemaScaffold(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'VALIDACIÓN CORRECTA',
-            style: textTheme.labelSmall?.copyWith(color: AppColors.success),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            ticket?.displayName ?? 'Acceso registrado',
-            style: textTheme.displayMedium,
-          ),
-          const SizedBox(height: 20),
-          LemaStatusStripCard(
+      body: LemaResultScreenLayout(
+        accent: AppColors.success,
+        content: [
+          LemaResultHero(
+            kicker: 'Validación correcta',
+            status: 'Acceso autorizado',
             accent: AppColors.success,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Acceso autorizado',
-                  style: textTheme.headlineMedium?.copyWith(
-                    color: AppColors.success,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${ticket?.ticketTypeLabel ?? 'Ticket'} · ${ticket?.orderLabel ?? 'Sin pedido'}',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: AppColors.onSurfaceMuted,
-                  ),
-                ),
-              ],
-            ),
+            icon: Icons.check_circle_rounded,
+            subject: ticket?.displayName ?? 'Acceso registrado',
+            supporting: lemaJoinText([
+              ticket?.ticketTypeLabel,
+              ticket?.orderLabel,
+            ]),
           ),
-          const Spacer(),
+          const SizedBox(height: 16),
+          LemaResultFocusCard(
+            accent: AppColors.success,
+            icon: Icons.verified_rounded,
+            title: 'Registro completado',
+            meta: lemaJoinText([
+              ticket?.code.isEmpty == true ? null : 'Código ${ticket?.code}',
+              ticket?.orderLabel,
+            ]),
+            description:
+                ticket?.ticketTypeDescriptionLabel ??
+                'El acceso quedó autorizado y registrado correctamente.',
+          ),
+          if (facts.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            LemaResultFacts(facts: facts, accent: AppColors.success),
+          ],
+        ],
+        actions: [
           LemaPrimaryButton(
             label: 'Continuar escaneando',
             icon: Icons.qr_code_scanner,
@@ -69,4 +92,13 @@ class ValidResultScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _formatDateTime(DateTime value) {
+  final local = value.toLocal();
+  final day = local.day.toString().padLeft(2, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$day/$month · $hour:$minute';
 }

@@ -3,23 +3,21 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_scaffold.dart';
 
-enum OperatorShellTab { scanner, manual, history }
+enum OperatorShellTab { scanner, manual }
 
 class OperatorShellScreen extends StatelessWidget {
   const OperatorShellScreen({
     super.key,
-    required this.tab,
+    this.tab,
     required this.child,
     this.onSelectScanner,
     this.onSelectManual,
-    this.onSelectHistory,
   });
 
-  final OperatorShellTab tab;
+  final OperatorShellTab? tab;
   final Widget child;
   final VoidCallback? onSelectScanner;
   final VoidCallback? onSelectManual;
-  final VoidCallback? onSelectHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +26,6 @@ class OperatorShellScreen extends StatelessWidget {
         tab: tab,
         onSelectScanner: onSelectScanner,
         onSelectManual: onSelectManual,
-        onSelectHistory: onSelectHistory,
       ),
       child: child,
     );
@@ -40,13 +37,11 @@ class _OperatorBottomNavigation extends StatelessWidget {
     required this.tab,
     this.onSelectScanner,
     this.onSelectManual,
-    this.onSelectHistory,
   });
 
-  final OperatorShellTab tab;
+  final OperatorShellTab? tab;
   final VoidCallback? onSelectScanner;
   final VoidCallback? onSelectManual;
-  final VoidCallback? onSelectHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -54,15 +49,6 @@ class _OperatorBottomNavigation extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: Row(
         children: [
-          Expanded(
-            child: _NavButton(
-              label: 'Escanear',
-              icon: Icons.qr_code_scanner_rounded,
-              selected: tab == OperatorShellTab.scanner,
-              onPressed: onSelectScanner,
-            ),
-          ),
-          const SizedBox(width: 8),
           Expanded(
             child: _NavButton(
               label: 'Manual',
@@ -74,10 +60,10 @@ class _OperatorBottomNavigation extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: _NavButton(
-              label: 'Historial',
-              icon: Icons.history_rounded,
-              selected: tab == OperatorShellTab.history,
-              onPressed: onSelectHistory,
+              label: 'Escanear',
+              icon: Icons.qr_code_scanner_rounded,
+              selected: tab == OperatorShellTab.scanner,
+              onPressed: onSelectScanner,
             ),
           ),
         ],

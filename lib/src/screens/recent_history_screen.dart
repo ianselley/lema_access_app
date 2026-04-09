@@ -1,25 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../access/core/access_rpc_exception.dart';
-import '../access/history/access_history_controller.dart';
-import '../access/history/access_history_models.dart';
+import '../controllers/history_controller.dart';
+import '../core/scan_input_normalizer.dart';
+import '../core/rpc_exception.dart';
+import '../models/history_models.dart';
+import '../models/ticket_models.dart';
+import '../providers/ticket_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
-import '../widgets/lema_scaffold.dart';
 
-class RecentHistoryScreen extends ConsumerStatefulWidget {
-  const RecentHistoryScreen({super.key, this.eventId, this.onOpenTicketDetail});
+/// Shows the recent-history bottom sheet.
+///
+/// [eventId] scopes the history to a single event.
+/// [onOpenTicketDetail] is called after selecting a ticket so the parent can
+/// navigate to the ticket detail page.
+void showRecentHistoryBottomSheet(
+  BuildContext context, {
+  String? eventId,
+  VoidCallback? onOpenTicketDetail,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _RecentHistorySheet(
+      eventId: eventId,
+      onOpenTicketDetail: onOpenTicketDetail,
+    ),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Bottom-sheet wrapper
+// ---------------------------------------------------------------------------
+
+class _RecentHistorySheet extends ConsumerStatefulWidget {
+  const _RecentHistorySheet({this.eventId, this.onOpenTicketDetail});
 
   final String? eventId;
   final VoidCallback? onOpenTicketDetail;
 
   @override
-  ConsumerState<RecentHistoryScreen> createState() =>
-      _RecentHistoryScreenState();
+  ConsumerState<_RecentHistorySheet> createState() =>
+      _RecentHistorySheetState();
 }
 
-class _RecentHistoryScreenState extends ConsumerState<RecentHistoryScreen> {
+class _RecentHistorySheetState extends ConsumerState<_RecentHistorySheet> {
   late final ScrollController _scrollController;
 
   @override
@@ -60,160 +87,333 @@ class _RecentHistoryScreenState extends ConsumerState<RecentHistoryScreen> {
     }
   }
 
+  void _openTicketDetail(AccessHistoryEntry item) {
+    final ticket = item.ticket;
+    if (ticket == null) {
+      return;
+    }
+
+    ref
+        .read(accessSelectedTicketProvider.notifier)
+        .state = AccessTicketSelection(
+      eventId: ticket.eventId,
+      ticketId: ticket.id,
+      query: _ticketReferenceLabel(item),
+      matchReason: TicketSearchMatchReason.other,
+      ticket: _mapHistoryTicket(ticket),
+      contextLabel: _sourceLabel(item.source),
+    );
+    ref.read(accessLatestCheckInOutcomeProvider.notifier).state = null;
+
+    // Close bottom sheet first, then navigate.
+    Navigator.of(context).pop();
+    widget.onOpenTicketDetail?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     final historyAsync = ref.watch(
       accessHistoryControllerProvider(widget.eventId),
     );
-    final textTheme = Theme.of(context).textTheme;
+    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
 
-    return LemaScaffold(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-      body: historyAsync.when(
-        loading: () => _LoadingState(textTheme: textTheme),
-        error: (error, stackTrace) =>
-            _ErrorState(error: error, onRetry: _refresh),
-        data: (state) => RefreshIndicator(
-          onRefresh: _refresh,
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
+    return DraggableScrollableSheet(
+      initialChildSize: 0.65,
+      minChildSize: 0.35,
+      maxChildSize: 0.92,
+      builder: (context, sheetScrollController) {
+        // We wire the sheet's scroll controller to our own internal one
+        // for the pagination logic. The DraggableScrollableSheet provides
+        // its own controller, but we need to drive both the sheet drag
+        // AND the list scroll with it, so we use NotificationListener.
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            border: Border(
+              top: BorderSide(
+                color: Color(0xFF2A2325),
+                width: 1,
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _Header(
-                  eventId: widget.eventId,
-                  totalCount: state.totalCount,
-                  summary: state.summary,
-                  onRefresh: _refresh,
-                ),
-                const SizedBox(height: 22),
-                if (state.items.isEmpty)
-                  _EmptyHistoryState(
+          ),
+          child: Column(
+            children: [
+              // Drag handle
+              _DragHandle(),
+
+              // Content
+              Expanded(
+                child: historyAsync.when(
+                  loading: () => const _LoadingState(),
+                  error: (error, _) =>
+                      _ErrorState(error: error, onRetry: _refresh),
+                  data: (state) => _HistoryList(
+                    state: state,
                     eventId: widget.eventId,
+                    scrollController: sheetScrollController,
                     onRefresh: _refresh,
-                  )
-                else
-                  Column(
-                    children: [
-                      for (var index = 0; index < state.items.length; index++)
-                        Padding(
-                          padding: EdgeInsets.only(
-                            bottom: index == state.items.length - 1 ? 0 : 10,
-                          ),
-                          child: _HistoryCard(
-                            item: state.items[index],
-                            onTap: state.items[index].ticket != null
-                                ? widget.onOpenTicketDetail
-                                : null,
-                          ),
-                        ),
-                    ],
-                  ),
-                const SizedBox(height: 16),
-                if (state.hasMore)
-                  _LoadMoreButton(
-                    isLoadingMore: state.isLoadingMore,
-                    onPressed: ref
+                    onOpenTicketDetail: _openTicketDetail,
+                    onLoadMore: () => ref
                         .read(
                           accessHistoryControllerProvider(
                             widget.eventId,
                           ).notifier,
                         )
-                        .loadMore,
+                        .loadMore(),
+                    bottomPadding: bottomPadding,
                   ),
-                if (state.isLoadingMore) ...[
-                  const SizedBox(height: 12),
-                  const Center(
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Drag handle
+// ---------------------------------------------------------------------------
+
+class _DragHandle extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(height: 10),
+        Container(
+          width: 36,
+          height: 4,
+          decoration: BoxDecoration(
+            color: AppColors.onSurfaceMuted.withValues(alpha: 0.32),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(height: 6),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// History list (scrollable with pagination)
+// ---------------------------------------------------------------------------
+
+class _HistoryList extends StatelessWidget {
+  const _HistoryList({
+    required this.state,
+    required this.eventId,
+    required this.scrollController,
+    required this.onRefresh,
+    required this.onOpenTicketDetail,
+    required this.onLoadMore,
+    required this.bottomPadding,
+  });
+
+  final AccessHistoryState state;
+  final String? eventId;
+  final ScrollController scrollController;
+  final Future<void> Function() onRefresh;
+  final void Function(AccessHistoryEntry) onOpenTicketDetail;
+  final VoidCallback onLoadMore;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification is ScrollUpdateNotification) {
+          final metrics = notification.metrics;
+          if (metrics.extentAfter < 280 &&
+              state.hasMore &&
+              !state.isLoadingMore) {
+            onLoadMore();
+          }
+        }
+        return false;
+      },
+      child: RefreshIndicator(
+        onRefresh: onRefresh,
+        child: CustomScrollView(
+          controller: scrollController,
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          slivers: [
+            // Header
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                child: _Header(
+                  eventId: eventId,
+                  totalCount: state.totalCount,
+                  summary: state.summary,
+                ),
+              ),
+            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 18)),
+
+            // Items
+            if (state.items.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _EmptyHistoryState(
+                    eventId: eventId,
+                    onRefresh: onRefresh,
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final item = state.items[index];
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index == state.items.length - 1 ? 0 : 10,
+                        ),
+                        child: _HistoryCard(
+                          item: item,
+                          onTap: item.ticket != null
+                              ? () => onOpenTicketDetail(item)
+                              : null,
+                        ),
+                      );
+                    },
+                    childCount: state.items.length,
+                  ),
+                ),
+              ),
+
+            // Inline loading indicator (for pagination)
+            if (state.isLoadingMore)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
                     child: SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   ),
-                ],
-                const OperatorShellBottomSpacer(),
-              ],
+                ),
+              ),
+
+            // Bottom safe area spacer
+            SliverToBoxAdapter(
+              child: SizedBox(height: 24 + bottomPadding),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 }
 
+// ---------------------------------------------------------------------------
+// Helper: map ticket for detail navigation
+// ---------------------------------------------------------------------------
+
+AccessTicketSnapshot _mapHistoryTicket(AccessHistoryTicketSnapshot ticket) {
+  return AccessTicketSnapshot(
+    id: ticket.id,
+    eventId: ticket.eventId,
+    code: ticket.code,
+    status: ticket.status,
+    canCheckIn: ticket.canCheckIn,
+    ticketType: AccessTicketType(
+      id: ticket.ticketType.id,
+      name: ticket.ticketType.name,
+      description: ticket.ticketType.description,
+    ),
+    attendee: AccessTicketAttendee(
+      id: ticket.attendee.id,
+      fullName: ticket.attendee.fullName,
+      email: ticket.attendee.email,
+      phone: ticket.attendee.phone,
+      birthDate: ticket.attendee.birthDate,
+      documentId: ticket.attendee.documentId,
+      isOrderBuyer: ticket.attendee.isOrderBuyer,
+    ),
+    buyer: ticket.buyer == null
+        ? null
+        : AccessTicketBuyer(
+            id: ticket.buyer!.id,
+            fullName: ticket.buyer!.fullName,
+            email: ticket.buyer!.email,
+            phone: ticket.buyer!.phone,
+          ),
+    order: AccessTicketOrder(
+      id: ticket.order.id,
+      status: ticket.order.status,
+      currency: ticket.order.currency,
+      paidAt: ticket.order.paidAt,
+    ),
+    issuedAt: ticket.issuedAt,
+    checkedInAt: ticket.checkedInAt,
+    updatedAt: ticket.updatedAt,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Header
+// ---------------------------------------------------------------------------
+
 class _Header extends StatelessWidget {
   const _Header({
     required this.eventId,
     required this.totalCount,
     required this.summary,
-    required this.onRefresh,
   });
 
   final String? eventId;
   final int totalCount;
   final AccessHistorySummary summary;
-  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return LemaPanel(
-      padding: const EdgeInsets.all(18),
-      color: AppColors.backgroundAlt,
-      borderColor: AppColors.outlineVariant.withValues(alpha: 0.18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'HISTORIAL',
-                      style: textTheme.labelSmall?.copyWith(
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      eventId == null
-                          ? 'Sin evento activo'
-                          : 'Actividad reciente',
-                      style: textTheme.displayMedium?.copyWith(
-                        color: AppColors.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      eventId == null
-                          ? 'Conecta un evento para ver registros.'
-                          : '$totalCount registros · ${summary.validCount} válidos · ${summary.incidentCount} incidencias',
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: AppColors.onSurfaceMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                onPressed: onRefresh,
-                icon: const Icon(Icons.refresh_rounded),
-                tooltip: 'Actualizar historial',
-              ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'HISTORIAL',
+          style: textTheme.labelSmall?.copyWith(
+            color: AppColors.primary,
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          eventId == null ? 'Sin evento activo' : 'Actividad reciente',
+          style: textTheme.displayMedium?.copyWith(
+            color: AppColors.onSurface,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          eventId == null
+              ? 'Conecta un evento para ver registros.'
+              : '$totalCount registros · ${summary.validCount} válidos · ${summary.incidentCount} incidencias',
+          style: textTheme.bodyMedium?.copyWith(
+            color: AppColors.onSurfaceMuted,
+          ),
+        ),
+      ],
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// History card
+// ---------------------------------------------------------------------------
 
 class _HistoryCard extends StatelessWidget {
   const _HistoryCard({required this.item, this.onTap});
@@ -229,8 +429,7 @@ class _HistoryCard extends StatelessWidget {
     final attendeeName =
         ticket?.attendee.fullName ?? item.actor.displayName ?? 'Sin asistente';
     final ticketType = ticket?.ticketType.name ?? 'Sin tipo de entrada';
-    final code =
-        ticket?.code ?? item.normalizedInput ?? item.rawInput ?? 'Sin código';
+    final code = _ticketReferenceLabel(item);
 
     return LemaStatusStripCard(
       accent: tone.accent,
@@ -250,7 +449,14 @@ class _HistoryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '$ticketType · $code',
+                  ticketType,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurfaceMuted,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  code,
                   style: textTheme.bodyMedium?.copyWith(
                     color: AppColors.onSurfaceMuted,
                   ),
@@ -285,21 +491,44 @@ class _HistoryCard extends StatelessWidget {
   }
 }
 
-class _LoadMoreButton extends StatelessWidget {
-  const _LoadMoreButton({required this.isLoadingMore, required this.onPressed});
+// ---------------------------------------------------------------------------
+// Ticket reference label
+// ---------------------------------------------------------------------------
 
-  final bool isLoadingMore;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: isLoadingMore ? null : onPressed,
-      icon: const Icon(Icons.expand_more_rounded),
-      label: Text(isLoadingMore ? 'Cargando...' : 'Cargar más'),
-    );
+String _ticketReferenceLabel(AccessHistoryEntry item) {
+  final ticketCode = item.ticket?.code.trim();
+  if (ticketCode != null && ticketCode.isNotEmpty) {
+    return ticketCode;
   }
+
+  final relatedCode = item.relatedTicketCode?.trim();
+  if (relatedCode != null && relatedCode.isNotEmpty) {
+    return 'CODE: $relatedCode';
+  }
+
+  final token =
+      item.extractedScanToken?.trim() ??
+      extractLemaTicketToken(item.rawInput ?? '')?.trim();
+  if (token != null && token.isNotEmpty) {
+    return 'TOKEN: $token';
+  }
+
+  final normalizedInput = item.normalizedInput?.trim();
+  if (normalizedInput != null && normalizedInput.isNotEmpty) {
+    return normalizedInput;
+  }
+
+  final rawInput = item.rawInput?.trim();
+  if (rawInput != null && rawInput.isNotEmpty) {
+    return rawInput;
+  }
+
+  return 'Sin código';
 }
+
+// ---------------------------------------------------------------------------
+// Empty state
+// ---------------------------------------------------------------------------
 
 class _EmptyHistoryState extends StatelessWidget {
   const _EmptyHistoryState({required this.eventId, required this.onRefresh});
@@ -341,18 +570,21 @@ class _EmptyHistoryState extends StatelessWidget {
   }
 }
 
-class _LoadingState extends StatelessWidget {
-  const _LoadingState({required this.textTheme});
+// ---------------------------------------------------------------------------
+// Loading state
+// ---------------------------------------------------------------------------
 
-  final TextTheme textTheme;
+class _LoadingState extends StatelessWidget {
+  const _LoadingState();
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: 80),
           const CircularProgressIndicator(),
           const SizedBox(height: 16),
           Text(
@@ -366,6 +598,10 @@ class _LoadingState extends StatelessWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Error state
+// ---------------------------------------------------------------------------
 
 class _ErrorState extends StatelessWidget {
   const _ErrorState({required this.error, required this.onRetry});
@@ -382,7 +618,7 @@ class _ErrorState extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.only(top: 72),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: LemaPanel(
           color: AppColors.surfaceLow,
           child: Column(
@@ -410,6 +646,10 @@ class _ErrorState extends StatelessWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Tone / styling helpers
+// ---------------------------------------------------------------------------
 
 _HistoryTone _toneForResultCode(String resultCode) {
   switch (resultCode) {

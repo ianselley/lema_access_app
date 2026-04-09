@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../access/core/access_rpc_exception.dart';
-import '../access/tickets/access_ticket_models.dart';
-import '../access/tickets/access_ticket_providers.dart';
+import '../core/rpc_exception.dart';
+import '../models/ticket_models.dart';
+import '../providers/ticket_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
@@ -22,43 +22,50 @@ class TicketDetailScreen extends ConsumerWidget {
 
     return LemaScaffold(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'DETALLE DEL TICKET',
-              style: textTheme.labelSmall?.copyWith(color: AppColors.primary),
-            ),
-            const SizedBox(height: 8),
-            Text('Revisión manual', style: textTheme.displayMedium),
-            const SizedBox(height: 20),
-            if (selection == null) ...[
-              const _EmptySelectionPanel(),
-            ] else ...[
-              detailAsync.when(
-                loading: () => const _LoadingPanel(),
-                error: (error, stackTrace) => _ErrorPanel(error: error),
-                data: (detail) => _DetailContent(
-                  detail: detail,
-                  selection: selection,
-                  actionState: actionState,
-                  onConfirm: () async {
-                    await ref
-                        .read(accessTicketCheckInControllerProvider.notifier)
-                        .confirmSelectedTicket();
-                    if (ref
-                            .read(accessTicketCheckInControllerProvider)
-                            .status ==
-                        AccessActionStatus.success) {
-                      onConfirmManualAccess?.call();
-                    }
-                  },
-                ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(accessSelectedTicketDetailProvider);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'DETALLE DEL TICKET',
+                style: textTheme.labelSmall?.copyWith(color: AppColors.primary),
               ),
+              const SizedBox(height: 8),
+              Text('Revisión manual', style: textTheme.displayMedium),
+              const SizedBox(height: 20),
+              if (selection == null) ...[
+                const _EmptySelectionPanel(),
+              ] else ...[
+                detailAsync.when(
+                  loading: () => const _LoadingPanel(),
+                  error: (error, stackTrace) => _ErrorPanel(error: error),
+                  data: (detail) => _DetailContent(
+                    detail: detail,
+                    selection: selection,
+                    actionState: actionState,
+                    onConfirm: () async {
+                      await ref
+                          .read(accessTicketCheckInControllerProvider.notifier)
+                          .confirmSelectedTicket();
+                      if (ref
+                              .read(accessTicketCheckInControllerProvider)
+                              .status ==
+                          AccessActionStatus.success) {
+                        onConfirmManualAccess?.call();
+                      }
+                    },
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -86,7 +93,6 @@ class _DetailContent extends StatelessWidget {
         detail.canCheckIn &&
         actionState.isLoading == false &&
         actionState.status != AccessActionStatus.success;
-    final lastScanResult = detail.lastScanResult;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -106,15 +112,33 @@ class _DetailContent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          detail.attendee.fullName ?? 'Sin nombre',
-                          style: textTheme.displayMedium?.copyWith(
+                          _fallbackText(
+                            detail.ticketType.name,
+                            placeholder: 'Tipo de ticket',
+                          ),
+                          style: textTheme.headlineLarge?.copyWith(
                             color: AppColors.onSurface,
                           ),
                         ),
                         const SizedBox(height: 6),
+                        if ((detail.ticketType.description ?? '')
+                            .trim()
+                            .isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            detail.ticketType.description!,
+                            style: textTheme.bodyLarge?.copyWith(
+                              color: AppColors.onSurface,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
                         Text(
-                          detail.ticketType.name ?? 'Tipo de ticket',
-                          style: textTheme.bodyMedium?.copyWith(
+                          _fallbackText(
+                            detail.attendee.fullName,
+                            placeholder: 'Sin nombre',
+                          ),
+                          style: textTheme.titleLarge?.copyWith(
                             color: AppColors.onSurfaceMuted,
                           ),
                         ),
@@ -127,7 +151,7 @@ class _DetailContent extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'Código ${detail.ticket.code} · Pedido ${detail.order.id}',
+                'Código ${_fallbackText(detail.ticket.code)}',
                 style: textTheme.bodyMedium?.copyWith(
                   color: AppColors.onSurfaceMuted,
                 ),
@@ -138,7 +162,7 @@ class _DetailContent extends StatelessWidget {
                 runSpacing: 10,
                 children: [
                   LemaTag(
-                    label: selection.matchReason.label,
+                    label: selection.detailContextLabel,
                     color: AppColors.surfaceHigh,
                     textColor: AppColors.primary,
                     icon: Icons.search_outlined,
@@ -154,27 +178,6 @@ class _DetailContent extends StatelessWidget {
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        LemaPanel(
-          color: AppColors.surfaceLow,
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _DetailRow(label: 'Canal', value: selection.matchReason.label),
-              const SizedBox(height: 12),
-              _DetailRow(label: 'Último estado', value: status.label),
-              if (lastScanResult != null) ...[
-                const SizedBox(height: 12),
-                _DetailRow(
-                  label: 'Último resultado',
-                  value:
-                      '${lastScanResult.result.label} · ${lastScanResult.reasonCode}',
-                ),
-              ],
             ],
           ),
         ),
@@ -329,42 +332,6 @@ class _ActionErrorBanner extends StatelessWidget {
   }
 }
 
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 108,
-          child: Text(
-            label.toUpperCase(),
-            style: textTheme.labelSmall?.copyWith(
-              color: AppColors.onSurfaceMuted,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: textTheme.bodyMedium?.copyWith(
-              color: AppColors.onSurface,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _ValidationRow extends StatelessWidget {
   const _ValidationRow({required this.event});
 
@@ -386,12 +353,12 @@ class _ValidationRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${result.label} · ${event.reasonCode}',
+                  '${result.label} · ${_fallbackText(event.reasonCode)}',
                   style: textTheme.bodyLarge,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${event.source} · ${event.actor.displayLabel}',
+                  '${_fallbackText(event.source)} · ${event.actor.displayLabel}',
                   style: textTheme.bodyMedium?.copyWith(
                     color: AppColors.onSurfaceMuted,
                   ),
@@ -464,7 +431,19 @@ Color _resultAccent(TicketAccessResultCode result) {
   }
 }
 
-String _formatDateTime(DateTime dateTime) {
+String _fallbackText(String? value, {String placeholder = 'Sin dato'}) {
+  final text = value?.trim();
+  if (text == null || text.isEmpty) {
+    return placeholder;
+  }
+  return text;
+}
+
+String _formatDateTime(DateTime? dateTime) {
+  if (dateTime == null) {
+    return 'Sin fecha';
+  }
+
   final local = dateTime.toLocal();
   final day = local.day.toString().padLeft(2, '0');
   final month = local.month.toString().padLeft(2, '0');

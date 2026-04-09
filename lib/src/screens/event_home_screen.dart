@@ -1,34 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../access/core/access_failure.dart';
-import '../access/events/access_event_ui.dart';
-import '../access/models/access_models.dart';
-import '../access/providers/access_providers.dart';
+import '../core/failure.dart';
+import '../models/event_models.dart';
+import '../models/ticket_models.dart' as tm;
+import '../providers/event_providers.dart';
+import '../providers/ticket_providers.dart';
+import '../screens/event_ui.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
+import 'recent_history_screen.dart';
 
 class EventHomeScreen extends ConsumerWidget {
   const EventHomeScreen({
     super.key,
     required this.eventId,
     this.onOpenScanner,
-    this.onOpenHistory,
+    this.onOpenTicketDetail,
+    this.bottomOverlay,
   });
 
   final String eventId;
   final VoidCallback? onOpenScanner;
-  final VoidCallback? onOpenHistory;
+  final VoidCallback? onOpenTicketDetail;
+  final Widget? bottomOverlay;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (eventId.trim().isEmpty) {
       return LemaScaffold(
-        body: _MissingEventState(
-          onOpenScanner: onOpenScanner,
-          onOpenHistory: onOpenHistory,
-        ),
+        body: _MissingEventState(onOpenScanner: onOpenScanner),
       );
     }
 
@@ -47,59 +49,157 @@ class EventHomeScreen extends ConsumerWidget {
         ),
       ),
       data: (home) {
-        final history = home.recentHistoryPreview.take(3).toList();
+        final history = home.recentHistoryPreview.take(5).toList();
 
         return LemaScaffold(
-          body: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _TopHero(
-                  eventName: home.displayName,
-                  eventLocation: home.locationLabel,
-                  membershipLabel: home.membershipLabel,
-                  statusLabel: home.statusLabel,
-                  progressLabel: home.progressLabel,
-                  capacityLabel: home.capacityLabel,
-                  checkedInCount: home.counters.checkedInCount,
-                  pendingCount: home.counters.pendingCheckInCount,
-                  progress: home.progress,
-                  onOpenScanner: onOpenScanner,
-                  onOpenHistory: onOpenHistory,
-                ),
-                const SizedBox(height: 24),
-                LemaSectionHeading(
-                  kicker: 'Actividad',
-                  title: 'Últimos accesos',
-                  trailing: onOpenHistory == null
-                      ? null
-                      : TextButton(
-                          onPressed: onOpenHistory,
-                          child: const Text('Ver todo'),
-                        ),
-                ),
-                const SizedBox(height: 14),
-                if (history.isEmpty)
-                  const _EmptyHistoryState()
-                else
-                  Column(
+          body: Stack(
+            children: [
+              RefreshIndicator(
+                onRefresh: () async {
+                  ref.invalidate(accessEventHomeProvider(eventId));
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      for (var index = 0; index < history.length; index++)
-                        Padding(
-                          padding: EdgeInsets.only(
-                            bottom: index == history.length - 1 ? 0 : 10,
+                      _TopHero(
+                        eventName: home.displayName,
+                        eventLocation: home.locationLabel,
+                        membershipLabel: home.membershipLabel,
+                        statusLabel: home.statusLabel,
+                        progressLabel: home.progressLabel,
+                        capacityLabel: home.capacityLabel,
+                        checkedInCount: home.counters.checkedInCount,
+                        pendingCount: home.counters.pendingCheckInCount,
+                        progress: home.progress,
+                      ),
+                      const SizedBox(height: 24),
+                      LemaSectionHeading(
+                        kicker: 'Actividad',
+                        title: 'Últimos accesos',
+                        trailing: TextButton(
+                          onPressed: () => showRecentHistoryBottomSheet(
+                            context,
+                            eventId: eventId,
+                            onOpenTicketDetail: onOpenTicketDetail,
                           ),
-                          child: _HistoryRow(entry: history[index]),
+                          child: const Text('Ver todo >'),
                         ),
+                      ),
+                      const SizedBox(height: 14),
+                      if (history.isEmpty)
+                        const _EmptyHistoryState()
+                      else
+                        Column(
+                          children: [
+                            for (var index = 0; index < history.length; index++)
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: index == history.length - 1 ? 0 : 10,
+                                ),
+                                child: _HistoryRow(
+                                  entry: history[index],
+                                  onTap: history[index].ticket != null
+                                      ? () => _openTicketDetail(
+                                            ref,
+                                            history[index],
+                                            onOpenTicketDetail,
+                                          )
+                                      : null,
+                                ),
+                              ),
+                          ],
+                        ),
+                      const SizedBox(height: 180),
                     ],
                   ),
-              ],
-            ),
+                ),
+              ),
+              if (bottomOverlay != null) bottomOverlay!,
+            ],
           ),
         );
       },
     );
+  }
+}
+
+void _openTicketDetail(
+  WidgetRef ref,
+  AccessHistoryItem item,
+  VoidCallback? onOpen,
+) {
+  final ticket = item.ticket;
+  if (ticket == null) return;
+
+  ref.read(accessSelectedTicketProvider.notifier).state = tm.AccessTicketSelection(
+    eventId: ticket.eventId,
+    ticketId: ticket.id,
+    query: ticket.code ?? item.normalizedInput ?? item.rawInput ?? 'Sin código',
+    matchReason: tm.TicketSearchMatchReason.other,
+    ticket: _mapEventToDetailTicket(ticket),
+    contextLabel: _sourceLabel(item.source),
+  );
+  ref.read(accessLatestCheckInOutcomeProvider.notifier).state = null;
+  onOpen?.call();
+}
+
+tm.AccessTicketSnapshot _mapEventToDetailTicket(AccessTicketSnapshot ticket) {
+  return tm.AccessTicketSnapshot(
+    id: ticket.id,
+    eventId: ticket.eventId,
+    code: ticket.code ?? '',
+    status: ticket.status,
+    canCheckIn: ticket.canCheckIn,
+    ticketType: tm.AccessTicketType(
+      id: ticket.ticketType.id,
+      name: ticket.ticketType.name,
+      description: ticket.ticketType.description,
+    ),
+    attendee: tm.AccessTicketAttendee(
+      id: ticket.attendee.id,
+      fullName: ticket.attendee.fullName,
+      email: ticket.attendee.email,
+      phone: ticket.attendee.phone,
+      birthDate: ticket.attendee.birthDate,
+      documentId: ticket.attendee.documentId,
+      isOrderBuyer: ticket.attendee.isOrderBuyer ?? false,
+    ),
+    buyer: ticket.buyer == null
+        ? null
+        : tm.AccessTicketBuyer(
+            id: ticket.buyer!.id,
+            fullName: ticket.buyer!.fullName,
+            email: ticket.buyer!.email,
+            phone: ticket.buyer!.phone,
+          ),
+    order: tm.AccessTicketOrder(
+      id: ticket.order.id,
+      status: ticket.order.status,
+      currency: ticket.order.currency,
+      paidAt: ticket.order.paidAt,
+    ),
+    issuedAt: ticket.issuedAt,
+    checkedInAt: ticket.checkedInAt,
+    updatedAt: ticket.updatedAt,
+  );
+}
+
+String _sourceLabel(String? source) {
+  switch (source) {
+    case 'scanner':
+      return 'Escáner';
+    case 'manual_code':
+      return 'Código manual';
+    case 'manual_search':
+      return 'Búsqueda manual';
+    case 'manual_detail':
+      return 'Detalle manual';
+    default:
+      return source ?? 'Otra fuente';
   }
 }
 
@@ -114,8 +214,6 @@ class _TopHero extends StatelessWidget {
     required this.checkedInCount,
     required this.pendingCount,
     required this.progress,
-    this.onOpenScanner,
-    this.onOpenHistory,
   });
 
   final String eventName;
@@ -127,8 +225,6 @@ class _TopHero extends StatelessWidget {
   final int checkedInCount;
   final int pendingCount;
   final double progress;
-  final VoidCallback? onOpenScanner;
-  final VoidCallback? onOpenHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -171,12 +267,6 @@ class _TopHero extends StatelessWidget {
                   ],
                 ),
               ),
-              if (onOpenHistory != null)
-                IconButton(
-                  onPressed: onOpenHistory,
-                  icon: const Icon(Icons.history),
-                  tooltip: 'Historial',
-                ),
             ],
           ),
           const SizedBox(height: 16),
@@ -213,27 +303,6 @@ class _TopHero extends StatelessWidget {
               color: AppColors.onSurfaceMuted,
             ),
           ),
-          if (onOpenScanner != null || onOpenHistory != null) ...[
-            const SizedBox(height: 18),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                if (onOpenScanner != null)
-                  LemaPrimaryButton(
-                    label: 'Empezar a escanear',
-                    icon: Icons.qr_code_scanner,
-                    onPressed: onOpenScanner,
-                  ),
-                if (onOpenHistory != null)
-                  OutlinedButton.icon(
-                    onPressed: onOpenHistory,
-                    icon: const Icon(Icons.history),
-                    label: const Text('Ver historial'),
-                  ),
-              ],
-            ),
-          ],
         ],
       ),
     );
@@ -241,77 +310,59 @@ class _TopHero extends StatelessWidget {
 }
 
 class _HistoryRow extends StatelessWidget {
-  const _HistoryRow({required this.entry});
+  const _HistoryRow({required this.entry, this.onTap});
 
   final AccessHistoryItem entry;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return LemaPanel(
-      padding: EdgeInsets.zero,
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            Container(
-              width: 4,
-              decoration: BoxDecoration(
+    return LemaStatusStripCard(
+      accent: entry.resultColor,
+      onTap: onTap,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.titleLabel,
+                  style: textTheme.titleMedium?.copyWith(
+                    color: AppColors.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  entry.subtitleLabel,
+                  style: textTheme.labelMedium?.copyWith(
+                    color: AppColors.onSurfaceMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                entry.relativeTimeLabel,
+                style: textTheme.labelSmall?.copyWith(
+                  color: AppColors.onSurfaceMuted,
+                ),
+              ),
+              const SizedBox(height: 8),
+              LemaStatusPill(
+                label: entry.resultLabel,
                 color: entry.resultColor,
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(10),
-                ),
               ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            entry.titleLabel,
-                            style: textTheme.titleMedium?.copyWith(
-                              color: AppColors.onSurface,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            entry.subtitleLabel,
-                            style: textTheme.labelMedium?.copyWith(
-                              color: AppColors.onSurfaceMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          entry.relativeTimeLabel,
-                          style: textTheme.labelSmall?.copyWith(
-                            color: AppColors.onSurfaceMuted,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        LemaStatusPill(
-                          label: entry.resultLabel,
-                          color: entry.resultColor,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -335,10 +386,9 @@ class _EmptyHistoryState extends StatelessWidget {
 }
 
 class _MissingEventState extends StatelessWidget {
-  const _MissingEventState({this.onOpenScanner, this.onOpenHistory});
+  const _MissingEventState({this.onOpenScanner});
 
   final VoidCallback? onOpenScanner;
-  final VoidCallback? onOpenHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -359,7 +409,7 @@ class _MissingEventState extends StatelessWidget {
                 color: AppColors.onSurfaceMuted,
               ),
             ),
-            if (onOpenScanner != null || onOpenHistory != null) ...[
+            if (onOpenScanner != null) ...[
               const SizedBox(height: 16),
               Wrap(
                 spacing: 10,
@@ -370,12 +420,6 @@ class _MissingEventState extends StatelessWidget {
                       onPressed: onOpenScanner,
                       icon: const Icon(Icons.qr_code_scanner),
                       label: const Text('Escáner'),
-                    ),
-                  if (onOpenHistory != null)
-                    OutlinedButton.icon(
-                      onPressed: onOpenHistory,
-                      icon: const Icon(Icons.history),
-                      label: const Text('Historial'),
                     ),
                 ],
               ),

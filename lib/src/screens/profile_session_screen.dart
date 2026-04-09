@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../access/bootstrap/access_bootstrap_providers.dart' as bootstrap;
-import '../access/profile/access_profile_providers.dart' as profile;
-import '../access/providers/access_providers.dart' as access;
+import '../providers/auth_providers.dart' as auth;
+import '../providers/bootstrap_providers.dart' as bootstrap;
+import '../providers/profile_providers.dart' as profile;
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
 
 class ProfileSessionScreen extends ConsumerWidget {
-  const ProfileSessionScreen({super.key, this.onLogout});
+  const ProfileSessionScreen({super.key, this.onOpenPastEvents, this.onLogout});
 
+  final VoidCallback? onOpenPastEvents;
   final VoidCallback? onLogout;
 
   @override
@@ -125,12 +126,47 @@ class ProfileSessionScreen extends ConsumerWidget {
                     },
                   ),
                 ),
+                const SizedBox(height: 16),
+                LemaPanel(
+                  color: AppColors.surfaceLow,
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Eventos pasados',
+                        style: textTheme.titleMedium?.copyWith(
+                          color: AppColors.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Consulta los eventos cerrados desde una lista separada.',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: AppColors.onSurfaceMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      FilledButton.tonalIcon(
+                        onPressed: onOpenPastEvents,
+                        icon: const Icon(Icons.history_rounded),
+                        label: const Text('Abrir eventos pasados'),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 18),
                 OutlinedButton.icon(
                   onPressed: () async {
                     await ref
-                        .read(access.accessAuthActionProvider.notifier)
+                        .read(auth.accessAuthActionProvider.notifier)
                         .signOut();
+                    if (!context.mounted) {
+                      return;
+                    }
                     onLogout?.call();
                   },
                   icon: const Icon(Icons.logout),

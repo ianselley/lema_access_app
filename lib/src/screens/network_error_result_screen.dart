@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../access/scan/access_scan_models.dart';
-import '../access/scan/access_scan_providers.dart';
+import '../models/scan_models.dart';
+import '../providers/scan_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
@@ -26,35 +26,56 @@ class NetworkErrorResultScreen extends ConsumerWidget {
       AccessScanFailure(:final failure) => failure,
       _ => null,
     };
-    final textTheme = Theme.of(context).textTheme;
+    final facts = <LemaResultFact>[
+      if (failure?.code != null)
+        LemaResultFact(
+          label: 'Error',
+          value: failure!.code,
+          icon: Icons.error_outline_rounded,
+        ),
+      if (outcome != null)
+        LemaResultFact(
+          label: 'Origen',
+          value: outcome.source.name,
+          icon: Icons.qr_code_scanner_rounded,
+        ),
+      if (outcome?.normalizedInput != null)
+        LemaResultFact(
+          label: 'Entrada',
+          value: outcome!.normalizedInput!,
+          icon: Icons.tag_rounded,
+        ),
+    ];
 
     return LemaScaffold(
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'ERROR DE CONEXIÓN',
-            style: textTheme.labelSmall?.copyWith(color: AppColors.error),
+      body: LemaResultScreenLayout(
+        accent: AppColors.error,
+        content: [
+          LemaResultHero(
+            kicker: 'Estado del sistema',
+            status: 'Error de conexión',
+            accent: AppColors.error,
+            icon: Icons.cloud_off_rounded,
+            subject: outcome?.headline ?? 'No hay conexión con el servidor',
+            supporting: failure?.code,
           ),
-          const SizedBox(height: 8),
-          Text(
-            outcome?.headline ?? 'No hay conexión con el servidor',
-            style: textTheme.displayMedium,
+          const SizedBox(height: 16),
+          LemaResultFocusCard(
+            accent: AppColors.error,
+            icon: Icons.wifi_find_rounded,
+            title: 'Sin comunicación con el backend',
+            meta: failure?.code,
+            description:
+                failure?.message ??
+                outcome?.body ??
+                'Reintenta o pasa a entrada manual.',
           ),
-          const SizedBox(height: 20),
-          LemaPanel(
-            color: AppColors.surfaceLow,
-            borderColor: AppColors.error.withValues(alpha: 0.24),
-            child: Text(
-              failure?.message ??
-                  outcome?.body ??
-                  'Reintenta o pasa a entrada manual.',
-              style: textTheme.bodyMedium?.copyWith(
-                color: AppColors.onSurfaceMuted,
-              ),
-            ),
-          ),
-          const Spacer(),
+          if (facts.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            LemaResultFacts(facts: facts, accent: AppColors.error),
+          ],
+        ],
+        actions: [
           LemaPrimaryButton(
             label: 'Reintentar conexión',
             icon: Icons.refresh_rounded,

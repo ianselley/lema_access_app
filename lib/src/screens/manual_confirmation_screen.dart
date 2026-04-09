@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../access/scan/access_scan_models.dart';
-import '../access/scan/access_scan_providers.dart';
+import '../models/scan_models.dart';
+import '../providers/scan_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
@@ -91,6 +91,16 @@ class ManualConfirmationScreen extends ConsumerWidget {
                         color: AppColors.onSurface,
                       ),
                     ),
+                    if (previewOutcome.ticket?.ticketTypeDescriptionLabel !=
+                        null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '${previewOutcome.ticket!.ticketTypeLabel} · ${previewOutcome.ticket!.ticketTypeDescriptionLabel!}',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: AppColors.onSurfaceMuted,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../access/core/access_rpc_exception.dart';
-import '../access/tickets/access_ticket_models.dart';
-import '../access/tickets/access_ticket_providers.dart';
+import '../core/rpc_exception.dart';
+import '../models/ticket_models.dart';
+import '../providers/event_providers.dart';
+import '../providers/ticket_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
@@ -22,35 +23,42 @@ class SearchResultsScreen extends ConsumerWidget {
     final hasQuery = query.isNotEmpty;
 
     return LemaScaffold(
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'RESULTADOS',
-              style: textTheme.labelSmall?.copyWith(color: AppColors.primary),
-            ),
-            const SizedBox(height: 8),
-            Text('Búsqueda manual', style: textTheme.displayMedium),
-            const SizedBox(height: 8),
-            if (!hasEventContext || !hasQuery)
-              _ContextNotice(
-                title: !hasEventContext
-                    ? 'Falta evento activo'
-                    : 'Falta consulta',
-                message: !hasEventContext
-                    ? 'Selecciona un evento antes de abrir resultados.'
-                    : 'Introduce una consulta para continuar.',
-                accent: AppColors.warning,
-              )
-            else
-              _ResultsContent(
-                query: query,
-                onOpenTicketDetail: onOpenTicketDetail,
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(accessTicketSearchResultsProvider);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'RESULTADOS',
+                style: textTheme.labelSmall?.copyWith(color: AppColors.primary),
               ),
-            const OperatorShellBottomSpacer(),
-          ],
+              const SizedBox(height: 8),
+              Text('Búsqueda manual', style: textTheme.displayMedium),
+              const SizedBox(height: 8),
+              if (!hasEventContext || !hasQuery)
+                _ContextNotice(
+                  title: !hasEventContext
+                      ? 'Falta evento activo'
+                      : 'Falta consulta',
+                  message: !hasEventContext
+                      ? 'Selecciona un evento antes de abrir resultados.'
+                      : 'Introduce una consulta para continuar.',
+                  accent: AppColors.warning,
+                )
+              else
+                _ResultsContent(
+                  query: query,
+                  onOpenTicketDetail: onOpenTicketDetail,
+                ),
+              const OperatorShellBottomSpacer(),
+            ],
+          ),
         ),
       ),
     );

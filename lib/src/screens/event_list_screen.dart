@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../access/core/access_debug_log.dart';
-import '../access/core/access_failure.dart';
-import '../access/events/access_event_ui.dart';
-import '../access/models/access_models.dart';
-import '../access/providers/access_providers.dart';
+import '../core/debug_log.dart';
+import '../core/failure.dart';
+import '../models/event_models.dart';
+import '../providers/event_providers.dart';
+import '../screens/event_ui.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
@@ -56,10 +56,6 @@ class EventListScreen extends ConsumerWidget {
             .where((event) => event.isScheduled)
             .take(3)
             .toList();
-        final finishedEvents = events
-            .where((event) => event.isFinished)
-            .take(3)
-            .toList();
         final pendingCount = events.fold<int>(
           0,
           (sum, event) => sum + event.pendingCheckInCount,
@@ -67,88 +63,70 @@ class EventListScreen extends ConsumerWidget {
 
         return LemaScaffold(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-          body: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(
-                child: _Header(
-                  totalEvents: events.length,
-                  liveEvents: liveEvents.length,
-                  pendingCount: pendingCount,
-                  onOpenProfile: onOpenProfile,
-                ),
+          body: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(accessEventsProvider);
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 28)),
-              SliverToBoxAdapter(
-                child: _SectionHeader(
-                  title: liveEvents.isEmpty ? 'Disponibles ahora' : 'En curso',
-                  subtitle: liveEvents.isEmpty
-                      ? 'No hay eventos en vivo; puedes entrar en el siguiente evento disponible.'
-                      : 'Prioriza estos eventos para operar ahora.',
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _Header(
+                    totalEvents: events.length,
+                    liveEvents: liveEvents.length,
+                    pendingCount: pendingCount,
+                    onOpenProfile: onOpenProfile,
+                  ),
                 ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 12)),
-              SliverToBoxAdapter(
-                child: _EventSectionGrid(
-                  events: liveEvents.isNotEmpty
-                      ? liveEvents.take(2).toList()
-                      : events.take(2).toList(),
-                  emptyLabel: 'No hay eventos disponibles.',
-                  onOpenEvent: onOpenEvent,
-                  highlightFirst: true,
-                ),
-              ),
-              if (scheduledEvents.isNotEmpty) ...[
-                const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                const SliverToBoxAdapter(
+                const SliverToBoxAdapter(child: SizedBox(height: 28)),
+                SliverToBoxAdapter(
                   child: _SectionHeader(
-                    title: 'Próximos',
-                    subtitle: 'Siguientes eventos preparados para abrir.',
+                    title: liveEvents.isEmpty ? 'Disponibles ahora' : 'En curso',
+                    subtitle: liveEvents.isEmpty
+                        ? 'No hay eventos en vivo; puedes entrar en el siguiente evento disponible.'
+                        : 'Prioriza estos eventos para operar ahora.',
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final event = scheduledEvents[index];
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: index == scheduledEvents.length - 1 ? 0 : 10,
-                      ),
-                      child: _CompactEventRow(
-                        event: event,
-                        icon: Icons.event_outlined,
-                        onTap: () => onOpenEvent?.call(event.event.id),
-                      ),
-                    );
-                  }, childCount: scheduledEvents.length),
-                ),
-              ],
-              if (finishedEvents.isNotEmpty) ...[
-                const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                const SliverToBoxAdapter(
-                  child: _SectionHeader(
-                    title: 'Cerrados',
-                    subtitle: 'Últimos eventos finalizados.',
+                SliverToBoxAdapter(
+                  child: _EventSectionGrid(
+                    events: liveEvents.isNotEmpty
+                        ? liveEvents.take(2).toList()
+                        : events.take(2).toList(),
+                    emptyLabel: 'No hay eventos disponibles.',
+                    onOpenEvent: onOpenEvent,
+                    highlightFirst: true,
                   ),
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final event = finishedEvents[index];
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: index == finishedEvents.length - 1 ? 0 : 10,
-                      ),
-                      child: _CompactEventRow(
-                        event: event,
-                        icon: Icons.event_available_outlined,
-                        onTap: () => onOpenEvent?.call(event.event.id),
-                      ),
-                    );
-                  }, childCount: finishedEvents.length),
-                ),
+                if (scheduledEvents.isNotEmpty) ...[
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                  const SliverToBoxAdapter(
+                    child: _SectionHeader(
+                      title: 'Próximos',
+                      subtitle: 'Siguientes eventos preparados para abrir.',
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final event = scheduledEvents[index];
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index == scheduledEvents.length - 1 ? 0 : 10,
+                        ),
+                        child: _CompactEventRow(
+                          event: event,
+                          icon: Icons.event_outlined,
+                          onTap: () => onOpenEvent?.call(event.event.id),
+                        ),
+                      );
+                    }, childCount: scheduledEvents.length),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         );
       },
@@ -180,19 +158,6 @@ class _Header extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  const _BrandMark(),
-                  const SizedBox(width: 10),
-                  Text(
-                    'OPERATIONS',
-                    style: textTheme.labelSmall?.copyWith(
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
               Text('Tus eventos', style: textTheme.displayLarge),
               const SizedBox(height: 8),
               Text(
@@ -222,22 +187,6 @@ class _Header extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _BrandMark extends StatelessWidget {
-  const _BrandMark();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 10,
-      height: 24,
-      decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(99),
-      ),
     );
   }
 }

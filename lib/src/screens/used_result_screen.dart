@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../access/scan/access_scan_models.dart';
-import '../access/scan/access_scan_providers.dart';
+import '../models/scan_models.dart';
+import '../providers/scan_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
@@ -22,44 +22,69 @@ class UsedResultScreen extends ConsumerWidget {
       _ => null,
     };
     final ticket = outcome?.ticket;
-    final textTheme = Theme.of(context).textTheme;
+    final facts = <LemaResultFact>[
+      if (ticket != null)
+        LemaResultFact(
+          label: 'Tipo',
+          value: ticket.ticketTypeLabel,
+          icon: Icons.confirmation_number_outlined,
+        ),
+      if (ticket != null && ticket.code.isNotEmpty)
+        LemaResultFact(
+          label: 'Código',
+          value: ticket.code,
+          icon: Icons.qr_code_2_rounded,
+        ),
+      if (outcome?.scanLog?.createdAt != null)
+        LemaResultFact(
+          label: 'Último registro',
+          value: _formatDateTime(outcome!.scanLog!.createdAt!),
+          icon: Icons.history_toggle_off_rounded,
+        ),
+      if (ticket != null)
+        LemaResultFact(
+          label: 'Estado',
+          value: ticket.statusLabel,
+          icon: Icons.info_outline_rounded,
+        ),
+    ];
 
     return LemaScaffold(
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'YA UTILIZADO',
-            style: textTheme.labelSmall?.copyWith(color: AppColors.warning),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            ticket?.displayName ?? 'Este acceso ya fue validado.',
-            style: textTheme.displayMedium,
-          ),
-          const SizedBox(height: 20),
-          LemaStatusStripCard(
+      body: LemaResultScreenLayout(
+        accent: AppColors.warning,
+        content: [
+          LemaResultHero(
+            kicker: 'Acceso previamente validado',
+            status: 'Ya utilizado',
             accent: AppColors.warning,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Revisión manual recomendada',
-                  style: textTheme.headlineMedium?.copyWith(
-                    color: AppColors.warning,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${ticket?.ticketTypeLabel ?? 'Ticket'} · ${ticket?.code ?? 'Sin código'}',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: AppColors.onSurfaceMuted,
-                  ),
-                ),
-              ],
-            ),
+            icon: Icons.history_toggle_off_rounded,
+            subject: ticket?.displayName ?? 'Revisión requerida',
+            supporting: lemaJoinText([
+              ticket?.ticketTypeLabel,
+              outcome?.scanLog?.createdAt == null
+                  ? null
+                  : 'Registrado ${_formatDateTime(outcome!.scanLog!.createdAt!)}',
+            ]),
           ),
-          const Spacer(),
+          const SizedBox(height: 16),
+          LemaResultFocusCard(
+            accent: AppColors.warning,
+            icon: Icons.warning_amber_rounded,
+            title: 'Revisión manual recomendada',
+            meta: lemaJoinText([
+              ticket?.ticketTypeLabel,
+              ticket?.code.isEmpty == true ? null : 'Código ${ticket?.code}',
+            ]),
+            description:
+                ticket?.ticketTypeDescriptionLabel ??
+                'Este ticket ya registra un acceso previo. Verifica el caso antes de permitir la entrada.',
+          ),
+          if (facts.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            LemaResultFacts(facts: facts, accent: AppColors.warning),
+          ],
+        ],
+        actions: [
           LemaPrimaryButton(
             label: 'Continuar escaneando',
             icon: Icons.qr_code_scanner,
@@ -69,4 +94,13 @@ class UsedResultScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _formatDateTime(DateTime value) {
+  final local = value.toLocal();
+  final day = local.day.toString().padLeft(2, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$day/$month · $hour:$minute';
 }

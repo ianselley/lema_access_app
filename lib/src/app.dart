@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'access/auth/access_gate_screen.dart';
+import 'screens/gate_screen.dart';
 import 'theme/app_theme.dart';
 
 class LemaAccessApp extends StatelessWidget {

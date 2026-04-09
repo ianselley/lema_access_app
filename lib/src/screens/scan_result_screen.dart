@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../access/scan/access_scan_models.dart';
-import '../access/scan/access_scan_providers.dart';
+import '../models/scan_models.dart';
+import '../providers/scan_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
@@ -75,10 +75,7 @@ class ScanResultScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  LemaStatusPill(
-                    label: outcome.resultCode,
-                    color: accent,
-                  ),
+                  LemaStatusPill(label: outcome.resultCode, color: accent),
                 ],
               ),
               const SizedBox(height: 22),
@@ -120,20 +117,11 @@ class ScanResultScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Lectura registrada',
-                      style: textTheme.titleLarge,
-                    ),
+                    Text('Lectura registrada', style: textTheme.titleLarge),
                     const SizedBox(height: 10),
-                    _InfoRow(
-                      label: 'Fuente',
-                      value: outcome.source.name,
-                    ),
+                    _InfoRow(label: 'Fuente', value: outcome.source.name),
                     const SizedBox(height: 8),
-                    _InfoRow(
-                      label: 'Entrada',
-                      value: outcome.rawInput,
-                    ),
+                    _InfoRow(label: 'Entrada', value: outcome.rawInput),
                     if (outcome.scanLog?.createdAt != null) ...[
                       const SizedBox(height: 8),
                       _InfoRow(
@@ -185,7 +173,10 @@ class ScanResultScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('No se pudo completar la operación', style: textTheme.titleLarge),
+                Text(
+                  'No se pudo completar la operación',
+                  style: textTheme.titleLarge,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   failure.code,
@@ -241,10 +232,7 @@ class ScanResultScreen extends ConsumerWidget {
 }
 
 class _TicketCard extends StatelessWidget {
-  const _TicketCard({
-    required this.ticket,
-    required this.accent,
-  });
+  const _TicketCard({required this.ticket, required this.accent});
 
   final AccessTicketSnapshot ticket;
   final Color accent;
@@ -264,6 +252,13 @@ class _TicketCard extends StatelessWidget {
           _InfoRow(label: 'Asistente', value: ticket.displayName),
           const SizedBox(height: 8),
           _InfoRow(label: 'Tipo', value: ticket.ticketTypeLabel),
+          if (ticket.ticketTypeDescriptionLabel != null) ...[
+            const SizedBox(height: 8),
+            _InfoRow(
+              label: 'Descripción',
+              value: ticket.ticketTypeDescriptionLabel!,
+            ),
+          ],
           const SizedBox(height: 8),
           _InfoRow(label: 'Código', value: ticket.code),
           const SizedBox(height: 8),
@@ -277,10 +272,7 @@ class _TicketCard extends StatelessWidget {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.label,
-    required this.value,
-  });
+  const _InfoRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -302,9 +294,7 @@ class _InfoRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Expanded(
-          child: Text(value, style: textTheme.bodyMedium),
-        ),
+        Expanded(child: Text(value, style: textTheme.bodyMedium)),
       ],
     );
   }
