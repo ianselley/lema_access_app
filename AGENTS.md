@@ -1,0 +1,2 @@
+- When checking backend-related behavior, data, schema, functions, policies, or migrations, use the local Supabase MCP whenever possible.
+- Add database migrations in the `lema-backend` repo, not in this web repo.

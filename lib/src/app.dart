@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers/activity_refresh_providers.dart';
+import 'providers/auth_providers.dart';
 import 'providers/bootstrap_providers.dart';
 import 'screens/gate_screen.dart';
 import 'theme/app_theme.dart';
@@ -81,6 +82,7 @@ class _AccessLifecycleBoundaryState
       return;
     }
 
+    ref.invalidate(authSessionProvider);
     ref.read(accessActivityRefreshTickProvider.notifier).state++;
     ref.invalidate(accessBootstrapProvider);
   }

@@ -156,11 +156,6 @@ class _JoinWithCodePanelState extends ConsumerState<JoinWithCodePanel> {
                   textColor: AppColors.primary,
                   icon: Icons.vpn_key_outlined,
                 ),
-                const Spacer(),
-                Icon(
-                  Icons.qr_code_2_rounded,
-                  color: AppColors.primary.withValues(alpha: 0.9),
-                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -181,7 +176,7 @@ class _JoinWithCodePanelState extends ConsumerState<JoinWithCodePanel> {
               inputFormatters: const [_ScannerInviteCodeFormatter()],
               decoration: const InputDecoration(
                 labelText: 'Código',
-                hintText: 'Ejemplo: A1B2C3',
+                hintText: 'Ejemplo: A1B-2C3',
               ),
               onChanged: (_) {
                 if (claimState.status != AccessScannerInviteClaimStatus.idle) {
@@ -235,13 +230,6 @@ class _JoinWithCodePanelState extends ConsumerState<JoinWithCodePanel> {
                 detail: scannerInviteClaimDetailMessage(claimState.result!),
               ),
             ],
-            const SizedBox(height: 10),
-            Text(
-              'El acceso se asigna en cuanto el código sea válido y esté disponible.',
-              style: textTheme.labelSmall?.copyWith(
-                color: AppColors.onSurfaceMuted,
-              ),
-            ),
           ],
         ),
       ),
@@ -313,11 +301,30 @@ class _ScannerInviteCodeFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    final normalized = normalizeScannerInviteCode(newValue.text);
+    var normalized = normalizeScannerInviteCode(newValue.text);
+    final removedSeparator =
+        oldValue.text.endsWith('-') &&
+        oldValue.text.length == newValue.text.length + 1 &&
+        oldValue.text.substring(0, oldValue.text.length - 1) == newValue.text;
+
+    if (removedSeparator && normalized.length == 3) {
+      normalized = normalized.substring(0, 2);
+    }
+
+    final formatted = _formatInviteCode(normalized);
+
     return TextEditingValue(
-      text: normalized,
-      selection: TextSelection.collapsed(offset: normalized.length),
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
+  }
+
+  String _formatInviteCode(String normalized) {
+    if (normalized.length < 3) {
+      return normalized;
+    }
+
+    return '${normalized.substring(0, 3)}-${normalized.substring(3)}';
   }
 }
 

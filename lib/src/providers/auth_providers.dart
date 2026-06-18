@@ -18,10 +18,32 @@ final accessAuthServiceProvider = Provider<AccessAuthService>((ref) {
   );
 });
 
+Future<Session?> _recoverCurrentSession(SupabaseClient client) async {
+  final session = client.auth.currentSession;
+  if (session == null || !session.isExpired) {
+    return session;
+  }
+
+  try {
+    final response = await client.auth.refreshSession();
+    return response.session ?? client.auth.currentSession;
+  } catch (_) {
+    await _signOutLocally(client);
+    return null;
+  }
+}
+
+Future<void> _signOutLocally(SupabaseClient client) async {
+  try {
+    await client.auth.signOut(scope: SignOutScope.local);
+  } catch (_) {}
+}
+
 Stream<Session?> _sessionStream(SupabaseClient client) async* {
-  yield client.auth.currentSession;
+  yield await _recoverCurrentSession(client);
   await for (final event in client.auth.onAuthStateChange) {
-    yield event.session;
+    final session = event.session;
+    yield session == null ? null : await _recoverCurrentSession(client);
   }
 }
 

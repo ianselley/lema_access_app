@@ -54,12 +54,25 @@ class EventListScreen extends ConsumerWidget {
           'Event list rendered with ${events.length} events',
           scope: 'events',
         );
-        final liveEvents = events.where((event) => event.isLive).toList();
-        final scheduledEvents = events
-            .where((event) => event.isScheduled)
+        final visibleEvents = events.where((event) => !event.isDraft).toList();
+        final liveEvents = visibleEvents
+            .where((event) => event.isLive)
+            .toList();
+        final primaryEvents = liveEvents.isNotEmpty
+            ? liveEvents.take(2).toList()
+            : visibleEvents.take(2).toList();
+        final primaryEventIds = primaryEvents
+            .map((event) => event.event.id)
+            .toSet();
+        final scheduledEvents = visibleEvents
+            .where(
+              (event) =>
+                  event.isScheduled &&
+                  !primaryEventIds.contains(event.event.id),
+            )
             .take(3)
             .toList();
-        final pendingCount = events.fold<int>(
+        final pendingCount = visibleEvents.fold<int>(
           0,
           (sum, event) => sum + event.pendingCheckInCount,
         );
@@ -78,7 +91,7 @@ class EventListScreen extends ConsumerWidget {
               slivers: [
                 SliverToBoxAdapter(
                   child: _Header(
-                    totalEvents: events.length,
+                    totalEvents: visibleEvents.length,
                     liveEvents: liveEvents.length,
                     pendingCount: pendingCount,
                     onOpenProfile: onOpenProfile,
@@ -98,9 +111,7 @@ class EventListScreen extends ConsumerWidget {
                 const SliverToBoxAdapter(child: SizedBox(height: 12)),
                 SliverToBoxAdapter(
                   child: _EventSectionGrid(
-                    events: liveEvents.isNotEmpty
-                        ? liveEvents.take(2).toList()
-                        : events.take(2).toList(),
+                    events: primaryEvents,
                     emptyLabel: 'No hay eventos disponibles.',
                     onOpenEvent: onOpenEvent,
                     onJoinWithCode: () => showJoinWithCodeSheet(context),
@@ -463,7 +474,7 @@ class _EmptySectionCard extends StatelessWidget {
           if (onJoinWithCode != null) ...[
             const SizedBox(height: 14),
             LemaPrimaryButton(
-              label: 'Pertenecer con código',
+              label: 'Unirse con código',
               icon: Icons.vpn_key_outlined,
               onPressed: onJoinWithCode,
             ),
