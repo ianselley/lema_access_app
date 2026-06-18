@@ -24,7 +24,7 @@ class EnvConfig {
     required this.supabaseAnonKey,
   });
 
-  static const String defaultEnvironmentName = 'staging';
+  static const String defaultEnvironmentName = 'prod';
 
   static const EnvConfig local = EnvConfig(
     environment: AppEnvironment.local,
