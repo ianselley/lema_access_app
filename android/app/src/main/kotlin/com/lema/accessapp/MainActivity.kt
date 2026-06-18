@@ -1,4 +1,4 @@
-package com.example.lema_access_app
+package club.lema.access
 
 import io.flutter.embedding.android.FlutterActivity
 
