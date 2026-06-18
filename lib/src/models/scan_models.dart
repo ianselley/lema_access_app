@@ -6,6 +6,74 @@ enum AccessScanUiVariant { valid, used, invalid, notFound, networkError }
 
 enum AccessScanFailureKind { auth, network, backend, contract, unknown }
 
+String accessTicketStatusLabel(String? status) {
+  switch (status) {
+    case 'issued':
+      return 'Emitido';
+    case 'checked_in':
+      return 'Registrado';
+    case 'cancelled':
+      return 'Cancelado';
+    case 'voided':
+      return 'Anulado';
+    case null:
+    case '':
+      return 'Sin estado';
+    default:
+      return status;
+  }
+}
+
+String? accessScanReasonLabel(String? reasonCode) {
+  switch (reasonCode) {
+    case 'EVENT_ACCESS_DENIED':
+      return 'Sin acceso al evento';
+    case 'TICKET_EVENT_MISMATCH':
+      return 'Evento incorrecto';
+    case 'TICKET_NOT_FOUND':
+      return 'Ticket no encontrado';
+    case 'TICKET_STATUS_INVALID':
+      return 'Estado no válido';
+    case 'ALREADY_CHECKED_IN':
+      return 'Ya registrado';
+    case 'CHECKED_IN':
+      return 'Acceso registrado';
+    case 'UNRESOLVED_SCAN_RESULT':
+      return 'Resultado no resuelto';
+    case null:
+    case '':
+      return null;
+    default:
+      return reasonCode;
+  }
+}
+
+String? accessScanInvalidCategoryLabel(String? category) {
+  switch (category) {
+    case 'different_brand':
+      return 'Otra marca';
+    case 'different_day':
+      return 'Otro día';
+    case 'different_event':
+      return 'Otro evento';
+    case 'ticket_cancelled':
+      return 'Ticket cancelado';
+    case 'ticket_voided':
+      return 'Ticket anulado';
+    case 'ticket_status_invalid':
+      return 'Estado no válido';
+    case 'ticket_already_used':
+      return 'Ya utilizado';
+    case 'event_access_denied':
+      return 'Sin acceso';
+    case null:
+    case '':
+      return null;
+    default:
+      return category;
+  }
+}
+
 AccessScanUiVariant accessScanUiVariantForResultCode(String resultCode) {
   switch (resultCode) {
     case 'valid':
@@ -159,20 +227,7 @@ class AccessTicketSnapshot {
 
   String get orderLabel => '#$orderId';
 
-  String get statusLabel {
-    switch (status) {
-      case 'issued':
-        return 'Emitido';
-      case 'checked_in':
-        return 'Registrado';
-      case 'cancelled':
-        return 'Cancelado';
-      case 'voided':
-        return 'Anulado';
-      default:
-        return status;
-    }
-  }
+  String get statusLabel => accessTicketStatusLabel(status);
 
   static String _readString(Object? value) {
     final text = value?.toString().trim();
@@ -189,6 +244,91 @@ class AccessTicketSnapshot {
     }
     return text;
   }
+}
+
+class AccessScanEventContext {
+  const AccessScanEventContext({
+    required this.id,
+    required this.name,
+    required this.brandName,
+    required this.brandUsername,
+    required this.startTime,
+    required this.endTime,
+    required this.placeName,
+    required this.placeCity,
+    required this.placeTimezone,
+    required this.operationalState,
+  });
+
+  factory AccessScanEventContext.fromJson(Map<String, dynamic> json) {
+    return AccessScanEventContext(
+      id: _readString(json['id']),
+      name: _readNullableString(json['name']),
+      brandName: _readNullableString(json['brand_name']),
+      brandUsername: _readNullableString(json['brand_username']),
+      startTime: _readDateTime(json['start_time']),
+      endTime: _readDateTime(json['end_time']),
+      placeName: _readNullableString(json['place_name']),
+      placeCity: _readNullableString(json['place_city']),
+      placeTimezone: _readNullableString(json['place_timezone']),
+      operationalState: _readNullableString(json['operational_state']),
+    );
+  }
+
+  final String id;
+  final String? name;
+  final String? brandName;
+  final String? brandUsername;
+  final DateTime? startTime;
+  final DateTime? endTime;
+  final String? placeName;
+  final String? placeCity;
+  final String? placeTimezone;
+  final String? operationalState;
+
+  String? get displayName {
+    final value = name?.trim();
+    if (value == null || value.isEmpty) {
+      return null;
+    }
+    return value;
+  }
+}
+
+class AccessScanInvalidContext {
+  const AccessScanInvalidContext({
+    required this.category,
+    required this.ticketStatus,
+    required this.sameBrand,
+    required this.sameDay,
+    required this.currentEvent,
+    required this.ticketEvent,
+  });
+
+  factory AccessScanInvalidContext.fromJson(Map<String, dynamic> json) {
+    final currentEventJson = _maybeReadMap(json['current_event']);
+    final ticketEventJson = _maybeReadMap(json['ticket_event']);
+
+    return AccessScanInvalidContext(
+      category: _readNullableString(json['category']),
+      ticketStatus: _readNullableString(json['ticket_status']),
+      sameBrand: _readNullableBool(json['same_brand']),
+      sameDay: _readNullableBool(json['same_day']),
+      currentEvent: currentEventJson == null
+          ? null
+          : AccessScanEventContext.fromJson(currentEventJson),
+      ticketEvent: ticketEventJson == null
+          ? null
+          : AccessScanEventContext.fromJson(ticketEventJson),
+    );
+  }
+
+  final String? category;
+  final String? ticketStatus;
+  final bool? sameBrand;
+  final bool? sameDay;
+  final AccessScanEventContext? currentEvent;
+  final AccessScanEventContext? ticketEvent;
 }
 
 class AccessScanLogSnapshot {
@@ -228,6 +368,7 @@ class AccessScanOutcome {
     required this.inputKind,
     required this.normalizedInput,
     required this.ticketStatus,
+    required this.invalidContext,
     required this.rawInput,
     required this.ticket,
     required this.scanLog,
@@ -241,6 +382,7 @@ class AccessScanOutcome {
   }) {
     final ticketJson = _maybeReadMap(json['ticket']);
     final scanLogJson = _maybeReadMap(json['scan_log']);
+    final invalidContextJson = _maybeReadMap(json['invalid_context']);
 
     return AccessScanOutcome(
       stage: stage,
@@ -253,6 +395,9 @@ class AccessScanOutcome {
       inputKind: _readNullableString(json['input_kind']),
       normalizedInput: _readNullableString(json['normalized_input']),
       ticketStatus: _readNullableString(json['ticket_status']),
+      invalidContext: invalidContextJson == null
+          ? null
+          : AccessScanInvalidContext.fromJson(invalidContextJson),
       ticket: ticketJson == null
           ? null
           : AccessTicketSnapshot.fromJson(ticketJson),
@@ -272,6 +417,7 @@ class AccessScanOutcome {
   final String? inputKind;
   final String? normalizedInput;
   final String? ticketStatus;
+  final AccessScanInvalidContext? invalidContext;
   final AccessTicketSnapshot? ticket;
   final AccessScanLogSnapshot? scanLog;
 
@@ -283,6 +429,68 @@ class AccessScanOutcome {
   String get headline => accessScanHeadlineForResultCode(resultCode);
 
   String get body => accessScanBodyForResultCode(resultCode);
+
+  String get displayHeadline {
+    switch (invalidContext?.category) {
+      case 'different_brand':
+        return 'Ticket de otra marca';
+      case 'different_day':
+        return 'Ticket de otro día';
+      case 'different_event':
+        return 'Ticket de otro evento';
+      case 'ticket_cancelled':
+        return 'Ticket cancelado';
+      case 'ticket_voided':
+        return 'Ticket anulado';
+      case 'event_access_denied':
+        return 'Sin acceso al evento';
+      default:
+        return headline;
+    }
+  }
+
+  String get displayBody {
+    final ticketEventName = invalidContext?.ticketEvent?.displayName;
+    final currentEventName = invalidContext?.currentEvent?.displayName;
+
+    switch (invalidContext?.category) {
+      case 'different_brand':
+        return _joinScanSentences([
+          if (ticketEventName != null)
+            'Este ticket corresponde a $ticketEventName.',
+          if (currentEventName != null) 'No es válido para $currentEventName.',
+          if (ticketEventName == null && currentEventName == null)
+            'Este ticket corresponde a otra marca y no es válido para el evento activo.',
+        ]);
+      case 'different_day':
+        return _joinScanSentences([
+          if (ticketEventName != null)
+            'Este ticket corresponde a $ticketEventName.',
+          'No coincide con el día del evento activo.',
+        ]);
+      case 'different_event':
+        return _joinScanSentences([
+          if (ticketEventName != null)
+            'Este ticket corresponde a $ticketEventName.',
+          'No pertenece al evento que estás escaneando ahora.',
+        ]);
+      case 'ticket_cancelled':
+        return 'Este ticket fue cancelado y no permite el acceso.';
+      case 'ticket_voided':
+        return 'Este ticket fue anulado y no permite el acceso.';
+      case 'ticket_status_invalid':
+        return 'El estado actual de este ticket no permite el acceso.';
+      case 'event_access_denied':
+        return 'Esta sesión no puede operar sobre el evento activo.';
+      default:
+        return body;
+    }
+  }
+
+  String? get displayReasonLabel {
+    return accessScanInvalidCategoryLabel(invalidContext?.category) ??
+        accessScanReasonLabel(reasonCode);
+  }
 }
 
 class AccessScanFailureInfo {
@@ -389,4 +597,11 @@ DateTime? _readDateTime(Object? value) {
   }
 
   return DateTime.tryParse(text);
+}
+
+String _joinScanSentences(List<String> values) {
+  return values
+      .map((value) => value.trim())
+      .where((value) => value.isNotEmpty)
+      .join(' ');
 }

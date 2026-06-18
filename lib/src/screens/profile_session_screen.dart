@@ -2,23 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/auth_providers.dart' as auth;
-import '../providers/bootstrap_providers.dart' as bootstrap;
 import '../providers/profile_providers.dart' as profile;
 import '../theme/app_theme.dart';
+import '../widgets/join_with_code_sheet.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
 
 class ProfileSessionScreen extends ConsumerWidget {
-  const ProfileSessionScreen({super.key, this.onOpenPastEvents, this.onLogout});
-
-  final VoidCallback? onOpenPastEvents;
+  const ProfileSessionScreen({super.key, this.onLogout});
   final VoidCallback? onLogout;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final meAsync = ref.watch(profile.accessMeProvider);
-    final bootstrapAsync = ref.watch(bootstrap.accessBootstrapProvider);
 
     return LemaScaffold(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
@@ -86,78 +83,7 @@ class ProfileSessionScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                LemaPanel(
-                  color: AppColors.surfaceLow,
-                  padding: const EdgeInsets.all(18),
-                  child: bootstrapAsync.when(
-                    loading: () => const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2.4),
-                    ),
-                    error: (error, stackTrace) => Text(
-                      error.toString(),
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: AppColors.onSurfaceMuted,
-                      ),
-                    ),
-                    data: (bootstrapData) {
-                      if (bootstrapData == null ||
-                          bootstrapData.eventsPreview.isEmpty) {
-                        return Text(
-                          'Sin evento sugerido.',
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: AppColors.onSurfaceMuted,
-                          ),
-                        );
-                      }
-
-                      final suggestedEvent = bootstrapData.eventsPreview
-                          .firstWhere(
-                            (event) =>
-                                event.id == bootstrapData.suggestedEventId,
-                            orElse: () => bootstrapData.eventsPreview.first,
-                          );
-
-                      return _InfoRow(
-                        label: 'Evento sugerido',
-                        value: suggestedEvent.name,
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-                LemaPanel(
-                  color: AppColors.surfaceLow,
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Eventos pasados',
-                        style: textTheme.titleMedium?.copyWith(
-                          color: AppColors.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Consulta los eventos cerrados desde una lista separada.',
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: AppColors.onSurfaceMuted,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      FilledButton.tonalIcon(
-                        onPressed: onOpenPastEvents,
-                        icon: const Icon(Icons.history_rounded),
-                        label: const Text('Abrir eventos pasados'),
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(48),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                const JoinWithCodePanel(),
                 const SizedBox(height: 18),
                 OutlinedButton.icon(
                   onPressed: () async {
@@ -228,42 +154,6 @@ class _ProfileErrorView extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 120,
-          child: Text(
-            label,
-            style: textTheme.labelSmall?.copyWith(
-              color: AppColors.onSurfaceMuted,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: textTheme.bodyMedium?.copyWith(
-              color: AppColors.onSurface,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

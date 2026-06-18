@@ -7,6 +7,7 @@ import '../models/event_models.dart';
 import '../providers/event_providers.dart';
 import '../screens/event_ui.dart';
 import '../theme/app_theme.dart';
+import '../widgets/join_with_code_sheet.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
 
@@ -25,6 +26,7 @@ class EventListScreen extends ConsumerWidget {
         accessLog('Event list loading', scope: 'events');
         return const LemaScaffold(
           padding: EdgeInsets.fromLTRB(20, 18, 20, 24),
+          showAutomaticBackButton: false,
           body: Center(
             child: CircularProgressIndicator(color: AppColors.primary),
           ),
@@ -39,6 +41,7 @@ class EventListScreen extends ConsumerWidget {
         );
         return LemaScaffold(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          showAutomaticBackButton: false,
           body: _EventsErrorState(
             error: error,
             onRetry: () => ref.invalidate(accessEventsProvider),
@@ -63,6 +66,7 @@ class EventListScreen extends ConsumerWidget {
 
         return LemaScaffold(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          showAutomaticBackButton: false,
           body: RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(accessEventsProvider);
@@ -83,7 +87,9 @@ class EventListScreen extends ConsumerWidget {
                 const SliverToBoxAdapter(child: SizedBox(height: 28)),
                 SliverToBoxAdapter(
                   child: _SectionHeader(
-                    title: liveEvents.isEmpty ? 'Disponibles ahora' : 'En curso',
+                    title: liveEvents.isEmpty
+                        ? 'Disponibles ahora'
+                        : 'En curso',
                     subtitle: liveEvents.isEmpty
                         ? 'No hay eventos en vivo; puedes entrar en el siguiente evento disponible.'
                         : 'Prioriza estos eventos para operar ahora.',
@@ -97,6 +103,7 @@ class EventListScreen extends ConsumerWidget {
                         : events.take(2).toList(),
                     emptyLabel: 'No hay eventos disponibles.',
                     onOpenEvent: onOpenEvent,
+                    onJoinWithCode: () => showJoinWithCodeSheet(context),
                     highlightFirst: true,
                   ),
                 ),
@@ -224,12 +231,14 @@ class _EventSectionGrid extends StatelessWidget {
     required this.events,
     required this.emptyLabel,
     required this.onOpenEvent,
+    required this.onJoinWithCode,
     required this.highlightFirst,
   });
 
   final List<AccessEventSummary> events;
   final String emptyLabel;
   final ValueChanged<String>? onOpenEvent;
+  final VoidCallback? onJoinWithCode;
   final bool highlightFirst;
 
   @override
@@ -238,46 +247,24 @@ class _EventSectionGrid extends StatelessWidget {
       return _EmptySectionCard(
         label: emptyLabel,
         detail: 'No hay nada que operar en este momento.',
+        onJoinWithCode: onJoinWithCode,
       );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 360;
-        if (events.length == 1 || !isWide) {
-          return Column(
-            children: [
-              for (var index = 0; index < events.length; index++) ...[
-                _ActiveEventCard(
-                  event: events[index],
-                  onTap: onOpenEvent == null
-                      ? null
-                      : () => onOpenEvent!.call(events[index].event.id),
-                  isPrimary: highlightFirst && index == 0,
-                ),
-                if (index != events.length - 1) const SizedBox(height: 12),
-              ],
-            ],
-          );
-        }
-
-        return Row(
-          children: [
-            for (var index = 0; index < events.length; index++) ...[
-              Expanded(
-                child: _ActiveEventCard(
-                  event: events[index],
-                  onTap: onOpenEvent == null
-                      ? null
-                      : () => onOpenEvent!.call(events[index].event.id),
-                  isPrimary: highlightFirst && index == 0,
-                ),
-              ),
-              if (index != events.length - 1) const SizedBox(width: 12),
-            ],
-          ],
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var index = 0; index < events.length; index++) ...[
+          _ActiveEventCard(
+            event: events[index],
+            onTap: onOpenEvent == null
+                ? null
+                : () => onOpenEvent!.call(events[index].event.id),
+            isPrimary: highlightFirst && index == 0,
+          ),
+          if (index != events.length - 1) const SizedBox(height: 12),
+        ],
+      ],
     );
   }
 }
@@ -446,10 +433,15 @@ class _StripPanel extends StatelessWidget {
 }
 
 class _EmptySectionCard extends StatelessWidget {
-  const _EmptySectionCard({required this.label, required this.detail});
+  const _EmptySectionCard({
+    required this.label,
+    required this.detail,
+    this.onJoinWithCode,
+  });
 
   final String label;
   final String detail;
+  final VoidCallback? onJoinWithCode;
 
   @override
   Widget build(BuildContext context) {
@@ -468,6 +460,14 @@ class _EmptySectionCard extends StatelessWidget {
               color: AppColors.onSurfaceMuted,
             ),
           ),
+          if (onJoinWithCode != null) ...[
+            const SizedBox(height: 14),
+            LemaPrimaryButton(
+              label: 'Pertenecer con código',
+              icon: Icons.vpn_key_outlined,
+              onPressed: onJoinWithCode,
+            ),
+          ],
         ],
       ),
     );

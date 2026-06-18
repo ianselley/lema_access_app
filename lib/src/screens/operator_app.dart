@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -11,13 +13,12 @@ import 'event_home_screen.dart';
 import 'event_list_screen.dart';
 import 'invalid_result_screen.dart';
 import 'login_screen.dart';
-import 'manual_code_screen.dart';
 import 'manual_confirmation_screen.dart';
 import 'manual_search_screen.dart';
 import 'network_error_result_screen.dart';
 import 'not_found_result_screen.dart';
 import 'operator_shell_screen.dart';
-import 'past_events_screen.dart';
+
 import 'profile_session_screen.dart';
 
 import 'scanner_active_screen.dart';
@@ -36,14 +37,12 @@ enum OperatorPage {
   invalidResult,
   notFoundResult,
   networkErrorResult,
-  manualCode,
   manualSearch,
   searchResults,
   ticketDetail,
   manualConfirmation,
 
   profileSession,
-  pastEvents,
 }
 
 class OperatorApp extends ConsumerStatefulWidget {
@@ -53,10 +52,14 @@ class OperatorApp extends ConsumerStatefulWidget {
   ConsumerState<OperatorApp> createState() => _OperatorAppState();
 }
 
-class _OperatorAppState extends ConsumerState<OperatorApp> {
-  final List<_RouteEntry> _stack = <_RouteEntry>[
-    _RouteEntry(OperatorPage.eventList),
-  ];
+class _OperatorAppState extends ConsumerState<OperatorApp>
+    with RestorationMixin {
+  final RestorableStringN _navigationState = RestorableStringN(null);
+
+  late List<_RouteEntry> _stack = _defaultStack();
+
+  @override
+  String? get restorationId => 'operator_app';
 
   bool get _canGoBack => _stack.length > 1;
 
@@ -64,6 +67,75 @@ class _OperatorAppState extends ConsumerState<OperatorApp> {
       ref.read(accessCurrentEventIdProvider)?.trim().isEmpty == true
       ? null
       : ref.read(accessCurrentEventIdProvider);
+
+  List<_RouteEntry> _defaultStack() => <_RouteEntry>[
+    _RouteEntry(OperatorPage.eventList),
+  ];
+
+  void _syncRestorationState() {
+    _navigationState.value = jsonEncode(<String, Object?>{
+      'eventId': _currentEventId,
+      'stack': _stack
+          .map(
+            (entry) => <String, String?>{
+              'page': entry.page.name,
+              'eventId': entry.eventId,
+            },
+          )
+          .toList(growable: false),
+    });
+  }
+
+  void _restoreNavigationState() {
+    final rawState = _navigationState.value;
+    if (rawState == null || rawState.isEmpty) {
+      _stack = _defaultStack();
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(rawState);
+      if (decoded is! Map<String, dynamic>) {
+        _stack = _defaultStack();
+        return;
+      }
+
+      final restoredEventId = decoded['eventId'] as String?;
+      final stackJson = decoded['stack'];
+      final restoredStack = <_RouteEntry>[];
+
+      if (stackJson is List<dynamic>) {
+        for (final item in stackJson) {
+          if (item is! Map<String, dynamic>) {
+            continue;
+          }
+
+          final pageName = item['page'] as String?;
+          final page = OperatorPage.values.where(
+            (value) => value.name == pageName,
+          );
+          if (page.isEmpty) {
+            continue;
+          }
+
+          restoredStack.add(
+            _RouteEntry(page.first, eventId: item['eventId'] as String?),
+          );
+        }
+      }
+
+      _stack = restoredStack.isEmpty ? _defaultStack() : restoredStack;
+      ref.read(accessCurrentEventIdProvider.notifier).state = restoredEventId;
+    } catch (_) {
+      _stack = _defaultStack();
+    }
+  }
+
+  @override
+  void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
+    registerForRestoration(_navigationState, 'navigation_state');
+    _restoreNavigationState();
+  }
 
   void _push(OperatorPage page, {String? eventId}) {
     if (!mounted) {
@@ -77,6 +149,7 @@ class _OperatorAppState extends ConsumerState<OperatorApp> {
     setState(() {
       _stack.add(_RouteEntry(page, eventId: eventId));
     });
+    _syncRestorationState();
   }
 
   void _replaceRoot(OperatorPage page, {String? eventId}) {
@@ -95,6 +168,7 @@ class _OperatorAppState extends ConsumerState<OperatorApp> {
         ..clear()
         ..add(_RouteEntry(page, eventId: eventId));
     });
+    _syncRestorationState();
   }
 
   void _pop() {
@@ -105,6 +179,7 @@ class _OperatorAppState extends ConsumerState<OperatorApp> {
     setState(() {
       _stack.removeLast();
     });
+    _syncRestorationState();
   }
 
   void _popToOrPush(OperatorPage page, {String? eventId}) {
@@ -126,6 +201,7 @@ class _OperatorAppState extends ConsumerState<OperatorApp> {
     setState(() {
       _stack.removeRange(index + 1, _stack.length);
     });
+    _syncRestorationState();
   }
 
   void _openEventHome(String eventId) {
@@ -159,19 +235,11 @@ class _OperatorAppState extends ConsumerState<OperatorApp> {
       _stack.removeRange(homeIndex + 1, _stack.length);
       _stack.add(_RouteEntry(page, eventId: resolvedEventId));
     });
+    _syncRestorationState();
   }
 
-  Widget _wrapShell({OperatorShellTab? tab, required Widget child}) {
-    return OperatorShellScreen(
-      tab: tab,
-      onSelectScanner: () => _switchPrimaryTool(
-        OperatorPage.scannerActive,
-        eventId: _currentEventId,
-      ),
-      onSelectManual: () =>
-          _switchPrimaryTool(OperatorPage.manualCode, eventId: _currentEventId),
-      child: child,
-    );
+  Widget _wrapShell({required Widget child}) {
+    return OperatorShellScreen(child: child);
   }
 
   Widget _buildScreen(_RouteEntry entry) {
@@ -200,12 +268,9 @@ class _OperatorAppState extends ConsumerState<OperatorApp> {
         );
       case OperatorPage.scannerActive:
         return _wrapShell(
-          tab: OperatorShellTab.scanner,
           child: ScannerActiveScreen(
-            onOpenManualCode: () => _switchPrimaryTool(
-              OperatorPage.manualCode,
-              eventId: _currentEventId,
-            ),
+            onOpenManualSearch: () =>
+                _push(OperatorPage.manualSearch, eventId: _currentEventId),
             onOpenTicketDetail: () => _push(OperatorPage.ticketDetail),
           ),
         );
@@ -223,35 +288,27 @@ class _OperatorAppState extends ConsumerState<OperatorApp> {
         );
       case OperatorPage.notFoundResult:
         return NotFoundResultScreen(
-          onManualSearch: () => _push(OperatorPage.manualSearch),
+          onManualSearch: () => _push(
+            OperatorPage.manualSearch,
+            eventId: _currentEventId,
+          ),
           onContinueScanning: () => _popToOrPush(OperatorPage.scannerActive),
         );
       case OperatorPage.networkErrorResult:
         return NetworkErrorResultScreen(
           onRetry: () => _popToOrPush(OperatorPage.scannerActive),
-          onManualEntry: () => _push(OperatorPage.manualCode),
-        );
-      case OperatorPage.manualCode:
-        return _wrapShell(
-          tab: OperatorShellTab.manual,
-          child: ManualCodeScreen(
-            onSubmitCode: () => _push(OperatorPage.manualConfirmation),
-            onOpenSearch: () => _push(OperatorPage.manualSearch),
+          onManualSearch: () => _push(
+            OperatorPage.manualSearch,
+            eventId: _currentEventId,
           ),
         );
       case OperatorPage.manualSearch:
-        return _wrapShell(
-          tab: OperatorShellTab.manual,
-          child: ManualSearchScreen(
-            onSearch: () => _push(OperatorPage.searchResults),
-          ),
+        return ManualSearchScreen(
+          onSearch: () => _push(OperatorPage.searchResults),
         );
       case OperatorPage.searchResults:
-        return _wrapShell(
-          tab: OperatorShellTab.manual,
-          child: SearchResultsScreen(
-            onOpenTicketDetail: () => _push(OperatorPage.ticketDetail),
-          ),
+        return SearchResultsScreen(
+          onOpenTicketDetail: () => _push(OperatorPage.ticketDetail),
         );
       case OperatorPage.ticketDetail:
         return TicketDetailScreen(
@@ -264,29 +321,27 @@ class _OperatorAppState extends ConsumerState<OperatorApp> {
 
       case OperatorPage.profileSession:
         return ProfileSessionScreen(
-          onOpenPastEvents: () => _push(OperatorPage.pastEvents),
           onLogout: () => _replaceRoot(OperatorPage.login),
         );
-      case OperatorPage.pastEvents:
-        return PastEventsScreen(onOpenEvent: _openEventHome);
     }
   }
 
   Page<void> _buildPage(_RouteEntry entry) {
     final child = _buildScreen(entry);
     final name = entry.page.name;
+    final key = ValueKey<String>('${entry.page.name}:${entry.eventId ?? ''}');
 
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      return CupertinoPage<void>(key: entry.key, name: name, child: child);
+      return CupertinoPage<void>(key: key, name: name, child: child);
     }
 
-    return MaterialPage<void>(key: entry.key, name: name, child: child);
+    return MaterialPage<void>(key: key, name: name, child: child);
   }
 
   @override
   Widget build(BuildContext context) {
     return OperatorNavigationScope(
-      canGoBack: true,
+      canGoBack: _canGoBack,
       onBack: _pop,
       child: Navigator(
         observers: [operatorRouteObserver],
@@ -300,11 +355,10 @@ class _OperatorAppState extends ConsumerState<OperatorApp> {
 }
 
 class _RouteEntry {
-  _RouteEntry(this.page, {this.eventId}) : key = UniqueKey();
+  _RouteEntry(this.page, {this.eventId});
 
   final OperatorPage page;
   final String? eventId;
-  final LocalKey key;
 }
 
 class _EventHomeScanCta extends StatelessWidget {

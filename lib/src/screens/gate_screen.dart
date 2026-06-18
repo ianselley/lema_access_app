@@ -7,6 +7,7 @@ import './operator_app.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
+import '../core/failure.dart';
 import '../core/debug_log.dart';
 import '../providers/auth_providers.dart';
 import '../providers/bootstrap_providers.dart';
@@ -23,7 +24,10 @@ class AccessGateScreen extends ConsumerWidget {
         title: 'Verificando sesión',
         subtitle: 'Comprobando el estado de autenticación y preparando la app.',
       ),
-      error: (error, stackTrace) => _BootstrapErrorView(error: error),
+      error: (error, stackTrace) => _BootstrapErrorView(
+        error: error,
+        onRetry: () => ref.invalidate(authSessionProvider),
+      ),
       data: (session) {
         accessLog(
           'Gate session resolved: session=${session?.user.id}',
@@ -39,12 +43,22 @@ class AccessGateScreen extends ConsumerWidget {
             title: 'Cargando acceso',
             subtitle: 'Consultando el bootstrap real del backend.',
           ),
-          error: (error, stackTrace) => _BootstrapErrorView(error: error),
+          error: (error, stackTrace) => _BootstrapErrorView(
+            error: error,
+            onRetry: () => ref.invalidate(accessBootstrapProvider),
+          ),
           data: (bootstrap) {
             accessLog(
               'Gate bootstrap resolved: profileExists=${bootstrap?.flags.profileExists} accessibleEventCount=${bootstrap?.accessibleEventCount}',
               scope: 'gate',
             );
+            if (bootstrap != null && bootstrap.profileExists == false) {
+              return LoginScreen(
+                initialStep: AccessAuthStep.completion,
+                initialEmail: bootstrap.email ?? session.user.email,
+              );
+            }
+
             return const OperatorApp();
           },
         );
@@ -54,9 +68,26 @@ class AccessGateScreen extends ConsumerWidget {
 }
 
 class _BootstrapErrorView extends StatelessWidget {
-  const _BootstrapErrorView({required this.error});
+  const _BootstrapErrorView({required this.error, required this.onRetry});
 
   final Object error;
+  final VoidCallback onRetry;
+
+  String _resolveMessage() {
+    if (error case AccessFailure(:final message)) {
+      return message;
+    }
+
+    return error.toString();
+  }
+
+  String _resolveTitle() {
+    if (error case AccessFailure(kind: AccessFailureKind.network)) {
+      return 'No se pudo recuperar la sesión';
+    }
+
+    return 'Error de sesión';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,23 +97,39 @@ class _BootstrapErrorView extends StatelessWidget {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
-          child: LemaPanel(
-            color: AppColors.surfaceLow,
-            borderColor: AppColors.error.withValues(alpha: 0.3),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Error de sesión', style: textTheme.titleLarge),
-                const SizedBox(height: 8),
-                Text(
-                  error.toString(),
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: AppColors.onSurfaceMuted,
-                  ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
-            ),
+                child: const Icon(
+                  Icons.sync_problem_rounded,
+                  color: AppColors.error,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(_resolveTitle(), style: textTheme.titleLarge),
+              const SizedBox(height: 8),
+              Text(
+                _resolveMessage(),
+                style: textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onSurfaceMuted,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 20),
+              LemaPrimaryButton(
+                label: 'Reiniciar',
+                icon: Icons.refresh_rounded,
+                onPressed: onRetry,
+              ),
+            ],
           ),
         ),
       ),

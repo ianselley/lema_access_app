@@ -2,32 +2,37 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'debug_log.dart';
+import 'env_config.dart';
 
 class AccessSupabaseConfig {
-  const AccessSupabaseConfig({
-    required this.url,
-    required this.anonKey,
-  });
+  const AccessSupabaseConfig({required this.url, required this.anonKey});
 
   factory AccessSupabaseConfig.fromEnvironment() {
-    final configuredUrl = const String.fromEnvironment(
-      'SUPABASE_URL',
-      defaultValue: 'http://127.0.0.1:54321',
-    );
-    final configuredAnonKey = const String.fromEnvironment(
-      'SUPABASE_ANON_KEY',
-      defaultValue:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0',
-    );
+    final envConfig = EnvConfig.fromEnvironment();
 
-    final resolvedUrl = configuredUrl.startsWith('http://127.0.0.1') &&
+    final resolvedUrl =
+        envConfig.supabaseUrl.startsWith('http://127.0.0.1') &&
             defaultTargetPlatform == TargetPlatform.android
-        ? configuredUrl.replaceFirst('127.0.0.1', '10.0.2.2')
-        : configuredUrl;
+        ? envConfig.supabaseUrl.replaceFirst('127.0.0.1', '10.0.2.2')
+        : envConfig.supabaseUrl;
+
+    final resolvedUri = Uri.tryParse(resolvedUrl);
+    final isReleaseSafeUrl =
+        resolvedUri != null &&
+        resolvedUri.hasScheme &&
+        resolvedUri.scheme == 'https' &&
+        resolvedUri.host.isNotEmpty;
+
+    if (kReleaseMode && !isReleaseSafeUrl) {
+      throw StateError(
+        'Release builds require an HTTPS Supabase URL. '
+        'Current APP_ENV: ${envConfig.environmentName}. Current value: $resolvedUrl',
+      );
+    }
 
     return AccessSupabaseConfig(
       url: resolvedUrl,
-      anonKey: configuredAnonKey,
+      anonKey: envConfig.supabaseAnonKey,
     );
   }
 
@@ -39,10 +44,7 @@ Future<void> initializeAccessSupabase() async {
   final config = AccessSupabaseConfig.fromEnvironment();
   accessLog('Initializing Supabase for ${config.url}', scope: 'supabase');
 
-  await Supabase.initialize(
-    url: config.url,
-    anonKey: config.anonKey,
-  );
+  await Supabase.initialize(url: config.url, anonKey: config.anonKey);
 
   accessLog(
     'Supabase initialized. hasSession=${Supabase.instance.client.auth.currentSession != null}',

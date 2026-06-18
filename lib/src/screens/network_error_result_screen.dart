@@ -8,10 +8,14 @@ import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
 
 class NetworkErrorResultScreen extends ConsumerWidget {
-  const NetworkErrorResultScreen({super.key, this.onRetry, this.onManualEntry});
+  const NetworkErrorResultScreen({
+    super.key,
+    this.onRetry,
+    this.onManualSearch,
+  });
 
   final VoidCallback? onRetry;
-  final VoidCallback? onManualEntry;
+  final VoidCallback? onManualSearch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -68,7 +72,7 @@ class NetworkErrorResultScreen extends ConsumerWidget {
             description:
                 failure?.message ??
                 outcome?.body ??
-                'Reintenta o pasa a entrada manual.',
+                'Reintenta o busca el ticket manualmente.',
           ),
           if (facts.isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -83,9 +87,9 @@ class NetworkErrorResultScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
-            onPressed: onManualEntry,
+            onPressed: onManualSearch,
             icon: const Icon(Icons.edit_note_rounded),
-            label: const Text('Entrada manual'),
+            label: const Text('Buscar ticket'),
           ),
         ],
       ),

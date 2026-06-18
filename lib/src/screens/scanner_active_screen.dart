@@ -2,50 +2,57 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../core/debug_log.dart';
 import '../controllers/history_controller.dart';
+import '../models/history_models.dart';
 import '../models/scan_models.dart';
 import '../models/ticket_models.dart' as ticket_models;
 import '../providers/event_providers.dart';
 import '../providers/scan_providers.dart';
 import '../providers/ticket_providers.dart';
 import '../navigation/operator_route_observer.dart';
+import '../screens/event_ui.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
+import 'history_scan_result_screen.dart';
 import 'recent_history_screen.dart';
 
 /// Data class for holding the last scanned ticket information so it can be
 /// displayed in the bottom row even after the scan controller state resets.
 class _LastScanInfo {
   const _LastScanInfo({
+    required this.eventId,
+    required this.titleLabel,
+    required this.subtitleLabel,
     required this.resultCode,
-    required this.displayName,
-    required this.ticketType,
-    required this.code,
-    this.ticket,
+    required this.createdAt,
+    this.ticketSelection,
+    this.resultSnapshot,
   });
 
+  final String? eventId;
+  final String titleLabel;
+  final String subtitleLabel;
   final String resultCode;
-  final String displayName;
-  final String ticketType;
-  final String code;
-
-  /// The original scan-model ticket snapshot, kept for navigation.
-  final AccessTicketSnapshot? ticket;
+  final DateTime? createdAt;
+  final ticket_models.AccessTicketSelection? ticketSelection;
+  final HistoryScanResultSnapshot? resultSnapshot;
 }
 
 class ScannerActiveScreen extends ConsumerStatefulWidget {
   const ScannerActiveScreen({
     super.key,
-    this.onOpenManualCode,
+    this.onOpenManualSearch,
     this.onOpenTicketDetail,
   });
 
-  final VoidCallback? onOpenManualCode;
+  final VoidCallback? onOpenManualSearch;
   final VoidCallback? onOpenTicketDetail;
 
   @override
@@ -65,6 +72,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
   bool _isSubmitting = false;
   bool _isAppActive = true;
   bool _isRouteVisible = true;
+  DateTime? _scannerCooldownUntil;
   String? _lastAcceptedInput;
   DateTime? _lastAcceptedAt;
   PageRoute<dynamic>? _pageRoute;
@@ -112,64 +120,6 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
     );
 
     _syncScannerState();
-    _seedLastScanFromHistory();
-  }
-
-  /// Reads the most recent history entry and populates [_lastScanInfo] so the
-  /// bottom row shows the last scanned ticket even on fresh screen opens.
-  void _seedLastScanFromHistory() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-
-      final eventId = ref.read(accessCurrentEventIdProvider);
-      if (eventId == null || eventId.trim().isEmpty) {
-        return;
-      }
-
-      final historyState = ref
-          .read(accessHistoryControllerProvider(eventId))
-          .valueOrNull;
-      if (historyState == null || historyState.items.isEmpty) {
-        return;
-      }
-
-      final first = historyState.items.first;
-      final ticket = first.ticket;
-
-      setState(() {
-        _lastScanInfo = _LastScanInfo(
-          resultCode: first.resultCode,
-          displayName: ticket?.attendee.fullName ?? 'Sin nombre',
-          ticketType: ticket?.ticketType.name ?? 'Ticket',
-          code: ticket?.code ?? first.rawInput ?? 'Sin código',
-          ticket: ticket == null
-              ? null
-              : AccessTicketSnapshot(
-                  id: ticket.id,
-                  eventId: ticket.eventId,
-                  code: ticket.code,
-                  status: ticket.status,
-                  canCheckIn: ticket.canCheckIn,
-                  ticketTypeName: ticket.ticketType.name ?? '',
-                  ticketTypeDescription: ticket.ticketType.description,
-                  attendeeFullName: ticket.attendee.fullName,
-                  attendeeEmail: ticket.attendee.email,
-                  attendeePhone: ticket.attendee.phone,
-                  orderId: ticket.order.id ?? '',
-                  orderStatus: ticket.order.status ?? '',
-                  orderCurrency: ticket.order.currency,
-                  buyerFullName: ticket.buyer?.fullName,
-                  buyerEmail: ticket.buyer?.email,
-                  buyerPhone: ticket.buyer?.phone,
-                  issuedAt: ticket.issuedAt,
-                  checkedInAt: ticket.checkedInAt,
-                  updatedAt: ticket.updatedAt,
-                ),
-        );
-      });
-    });
   }
 
   @override
@@ -211,6 +161,23 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
   }
 
   @override
+  void didHaveMemoryPressure() {
+    accessLog(
+      'Memory pressure received while scanner route is mounted.',
+      scope: 'scanner',
+    );
+    _scannerCooldownUntil = DateTime.now().add(const Duration(seconds: 3));
+    unawaited(_disposeScannerController());
+    Future<void>.delayed(const Duration(seconds: 3), () {
+      if (!mounted) {
+        return;
+      }
+
+      _syncScannerState();
+    });
+  }
+
+  @override
   void didPushNext() {
     _isRouteVisible = false;
     _syncScannerState();
@@ -230,16 +197,25 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
 
   bool _isActiveLifecycleState(AppLifecycleState? state) {
     return switch (state) {
-      null || AppLifecycleState.resumed || AppLifecycleState.inactive => true,
+      null || AppLifecycleState.resumed => true,
+      AppLifecycleState.inactive ||
       AppLifecycleState.hidden ||
       AppLifecycleState.paused ||
       AppLifecycleState.detached => false,
     };
   }
 
+  bool get _isScannerCoolingDown =>
+      _scannerCooldownUntil != null &&
+      DateTime.now().isBefore(_scannerCooldownUntil!);
+
   MobileScannerController _createScannerController() {
     return MobileScannerController(
       autoStart: false,
+      cameraResolution: switch (defaultTargetPlatform) {
+        TargetPlatform.iOS => const Size(640, 480),
+        _ => const Size(720, 1280),
+      },
       detectionSpeed: DetectionSpeed.normal,
       detectionTimeoutMs: 600,
       formats: _barcodeFormats,
@@ -249,7 +225,8 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
   }
 
   Future<void> _syncScannerState() {
-    final shouldRun = mounted && _isAppActive && _isRouteVisible;
+    final shouldRun =
+        mounted && _isAppActive && _isRouteVisible && !_isScannerCoolingDown;
 
     _scannerSync = _scannerSync.then((_) async {
       if (shouldRun) {
@@ -297,6 +274,17 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
       await WidgetsBinding.instance.endOfFrame;
     }
 
+    try {
+      await scannerController.stop();
+    } catch (error, stackTrace) {
+      accessLog(
+        'Scanner stop failed during dispose.',
+        scope: 'scanner',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
     await scannerController.dispose();
   }
 
@@ -324,6 +312,10 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
 
   void _showScanResultOverlay(AccessScanOutcome outcome) {
     _resultDisplayTimer?.cancel();
+    final lastScanInfo = _lastScanInfoFromOutcome(
+      ref.read(accessCurrentEventIdProvider),
+      outcome,
+    );
 
     setState(() {
       _showResultOverlay = true;
@@ -339,13 +331,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
       }
 
       // Update last scan info before animating away
-      _lastScanInfo = _LastScanInfo(
-        resultCode: outcome.resultCode,
-        displayName: outcome.ticket?.displayName ?? 'Sin nombre',
-        ticketType: outcome.ticket?.ticketTypeLabel ?? 'Ticket',
-        code: outcome.ticket?.code ?? outcome.rawInput,
-        ticket: outcome.ticket,
-      );
+      _lastScanInfo = lastScanInfo;
 
       // Start slide-down animation
       _slideDownController.forward(from: 0).then((_) {
@@ -403,14 +389,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
   }
 
   Color _accentForResultCode(String resultCode) {
-    final variant = accessScanUiVariantForResultCode(resultCode);
-    return switch (variant) {
-      AccessScanUiVariant.valid => AppColors.success,
-      AccessScanUiVariant.used => AppColors.warning,
-      AccessScanUiVariant.invalid => AppColors.error,
-      AccessScanUiVariant.notFound => const Color(0xFF9CA3AF),
-      AccessScanUiVariant.networkError => AppColors.error,
-    };
+    return historyResultColor(resultCode);
   }
 
   IconData _iconForResultCode(String resultCode) {
@@ -440,6 +419,11 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
       return null;
     }
 
+    final eventName = outcome.invalidContext?.ticketEvent?.displayName?.trim();
+    if (eventName != null && eventName.isNotEmpty) {
+      return eventName;
+    }
+
     final ticket = outcome.ticket;
     final displayName = ticket?.displayName.trim();
     if (displayName != null &&
@@ -461,29 +445,273 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
       return null;
     }
 
+    final invalidContext = outcome.invalidContext;
+    if (invalidContext != null) {
+      final invalidSummary = _joinOverlayLabelParts([
+        if (invalidContext.ticketEvent?.brandName != null)
+          invalidContext.ticketEvent!.brandName!,
+        if (invalidContext.ticketEvent?.startTime != null)
+          _formatOverlayEventDate(invalidContext.ticketEvent!.startTime!),
+        outcome.displayReasonLabel,
+      ]);
+      if (invalidSummary != null) {
+        return invalidSummary;
+      }
+
+      final statusLabel = accessTicketStatusLabel(
+        invalidContext.ticketStatus ?? outcome.ticketStatus,
+      );
+      if (statusLabel != 'Sin estado') {
+        return statusLabel;
+      }
+    }
+
     final ticket = outcome.ticket;
     if (ticket != null) {
       return ticket.ticketTypeLabel;
     }
 
-    final reasonCode = outcome.reasonCode?.trim();
-    if (reasonCode != null && reasonCode.isNotEmpty) {
-      return reasonCode;
+    final reasonLabel = outcome.displayReasonLabel?.trim();
+    if (reasonLabel != null && reasonLabel.isNotEmpty) {
+      return reasonLabel;
     }
 
     final source = outcome.source.name.trim();
     return source.isEmpty ? null : source;
   }
 
-  void _openLastScanTicketDetail() {
-    final scanTicket = _lastScanInfo?.ticket;
-    if (scanTicket == null) {
-      return;
+  String _overlayHeadline(AccessScanOutcome? outcome, String resultCode) {
+    return outcome?.displayHeadline ??
+        accessScanHeadlineForResultCode(resultCode);
+  }
+
+  String _formatOverlayEventDate(DateTime value) {
+    final local = value.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    return '$day/$month';
+  }
+
+  String? _joinOverlayLabelParts(List<String?> values) {
+    final parts = values
+        .whereType<String>()
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+    if (parts.isEmpty) {
+      return null;
+    }
+    return parts.join(' · ');
+  }
+
+  String? _normalizedEventId(String? eventId) {
+    final normalized = eventId?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      return null;
+    }
+    return normalized;
+  }
+
+  _LastScanInfo? _lastScanInfoFromHistoryState(
+    String? eventId,
+    AccessHistoryState? historyState,
+  ) {
+    final normalizedEventId = _normalizedEventId(eventId);
+    if (normalizedEventId == null ||
+        historyState == null ||
+        historyState.items.isEmpty) {
+      return null;
     }
 
-    ref
-        .read(accessSelectedTicketProvider.notifier)
-        .state = ticket_models.AccessTicketSelection(
+    return _lastScanInfoFromHistoryEntry(
+      normalizedEventId,
+      historyState.items.first,
+    );
+  }
+
+  _LastScanInfo _lastScanInfoFromHistoryEntry(
+    String eventId,
+    AccessHistoryEntry entry,
+  ) {
+    final ticket = entry.ticket;
+
+    return _LastScanInfo(
+      eventId: ticket?.eventId ?? eventId,
+      titleLabel:
+          ticket?.attendee.fullName ??
+          entry.actor.displayName ??
+          'Sin asistente',
+      subtitleLabel: _historyEntrySubtitle(entry),
+      resultCode: entry.resultCode,
+      createdAt: entry.createdAt,
+      ticketSelection:
+          ticket == null || historyResultNeedsExplanation(entry.resultCode)
+          ? null
+          : _historyTicketSelection(entry, ticket),
+      resultSnapshot: historyResultNeedsExplanation(entry.resultCode)
+          ? HistoryScanResultSnapshot.fromHistoryEntry(entry)
+          : null,
+    );
+  }
+
+  _LastScanInfo _lastScanInfoFromOutcome(
+    String? currentEventId,
+    AccessScanOutcome outcome,
+  ) {
+    return _LastScanInfo(
+      eventId: _normalizedEventId(outcome.ticket?.eventId ?? currentEventId),
+      titleLabel: _outcomeTitleLabel(outcome),
+      subtitleLabel: _outcomeSubtitleLabel(outcome),
+      resultCode: outcome.resultCode,
+      createdAt: outcome.scanLog?.createdAt ?? DateTime.now(),
+      ticketSelection:
+          outcome.ticket == null ||
+              historyResultNeedsExplanation(outcome.resultCode)
+          ? null
+          : _selectionFromScanSnapshot(outcome.ticket!),
+      resultSnapshot: historyResultNeedsExplanation(outcome.resultCode)
+          ? _resultSnapshotFromOutcome(outcome)
+          : null,
+    );
+  }
+
+  String _historyEntrySubtitle(AccessHistoryEntry entry) {
+    final parts = <String>[
+      if (entry.ticket?.code.trim().isNotEmpty ?? false) entry.ticket!.code,
+      if (entry.normalizedInput?.trim().isNotEmpty ?? false)
+        entry.normalizedInput!,
+      if (entry.source.trim().isNotEmpty) entry.source,
+    ];
+
+    if (parts.isEmpty) {
+      return 'Validación registrada';
+    }
+
+    return parts.join(' · ');
+  }
+
+  String _outcomeTitleLabel(AccessScanOutcome outcome) {
+    final ticketName = outcome.ticket?.displayName.trim();
+    if (ticketName != null && ticketName.isNotEmpty) {
+      return ticketName;
+    }
+
+    final eventName = outcome.invalidContext?.ticketEvent?.displayName?.trim();
+    if (eventName != null && eventName.isNotEmpty) {
+      return eventName;
+    }
+
+    final normalizedInput = outcome.normalizedInput?.trim();
+    if (normalizedInput != null && normalizedInput.isNotEmpty) {
+      return normalizedInput;
+    }
+
+    return 'Sin asistente';
+  }
+
+  String _outcomeSubtitleLabel(AccessScanOutcome outcome) {
+    final parts = <String>[
+      if (outcome.ticket?.code.trim().isNotEmpty ?? false) outcome.ticket!.code,
+      if (outcome.ticket?.ticketTypeLabel.trim().isNotEmpty ?? false)
+        outcome.ticket!.ticketTypeLabel,
+      if (outcome.displayReasonLabel?.trim().isNotEmpty ?? false)
+        outcome.displayReasonLabel!,
+    ];
+
+    if (parts.isEmpty) {
+      return 'Validación registrada';
+    }
+
+    return parts.join(' · ');
+  }
+
+  ticket_models.AccessTicketSnapshot _mapHistoryTicketSnapshot(
+    AccessHistoryTicketSnapshot ticket,
+  ) {
+    return ticket_models.AccessTicketSnapshot(
+      id: ticket.id,
+      eventId: ticket.eventId,
+      code: ticket.code,
+      status: ticket.status,
+      canCheckIn: ticket.canCheckIn,
+      ticketType: ticket_models.AccessTicketType(
+        id: ticket.ticketType.id,
+        name: ticket.ticketType.name,
+        description: ticket.ticketType.description,
+      ),
+      attendee: ticket_models.AccessTicketAttendee(
+        id: ticket.attendee.id,
+        fullName: ticket.attendee.fullName,
+        email: ticket.attendee.email,
+        phone: ticket.attendee.phone,
+        birthDate: ticket.attendee.birthDate,
+        documentId: ticket.attendee.documentId,
+        isOrderBuyer: ticket.attendee.isOrderBuyer,
+      ),
+      buyer: ticket.buyer == null
+          ? null
+          : ticket_models.AccessTicketBuyer(
+              id: ticket.buyer!.id,
+              fullName: ticket.buyer!.fullName,
+              email: ticket.buyer!.email,
+              phone: ticket.buyer!.phone,
+            ),
+      order: ticket_models.AccessTicketOrder(
+        id: ticket.order.id,
+        status: ticket.order.status,
+        currency: ticket.order.currency,
+        paidAt: ticket.order.paidAt,
+      ),
+      issuedAt: ticket.issuedAt,
+      checkedInAt: ticket.checkedInAt,
+      updatedAt: ticket.updatedAt,
+    );
+  }
+
+  _LastScanInfo? _resolveDisplayedLastScan({
+    required String? eventId,
+    required _LastScanInfo? historyLastScan,
+    required _LastScanInfo? optimisticLastScan,
+  }) {
+    final normalizedEventId = _normalizedEventId(eventId);
+    if (normalizedEventId == null) {
+      return null;
+    }
+
+    final scopedHistoryLastScan = historyLastScan?.eventId == normalizedEventId
+        ? historyLastScan
+        : null;
+    final scopedOptimisticLastScan =
+        optimisticLastScan?.eventId == normalizedEventId
+        ? optimisticLastScan
+        : null;
+
+    if (scopedHistoryLastScan == null) {
+      return scopedOptimisticLastScan;
+    }
+    if (scopedOptimisticLastScan == null) {
+      return scopedHistoryLastScan;
+    }
+
+    final optimisticCreatedAt = scopedOptimisticLastScan.createdAt;
+    final historyCreatedAt = scopedHistoryLastScan.createdAt;
+
+    if (optimisticCreatedAt == null) {
+      return scopedHistoryLastScan;
+    }
+    if (historyCreatedAt == null) {
+      return scopedOptimisticLastScan;
+    }
+
+    return optimisticCreatedAt.isBefore(historyCreatedAt)
+        ? scopedHistoryLastScan
+        : scopedOptimisticLastScan;
+  }
+
+  ticket_models.AccessTicketSelection _selectionFromScanSnapshot(
+    AccessTicketSnapshot scanTicket,
+  ) {
+    return ticket_models.AccessTicketSelection(
       eventId: scanTicket.eventId,
       ticketId: scanTicket.id,
       query: scanTicket.code,
@@ -528,12 +756,91 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
       ),
       contextLabel: 'Escáner',
     );
-    ref.read(accessLatestCheckInOutcomeProvider.notifier).state = null;
-    widget.onOpenTicketDetail?.call();
+  }
+
+  ticket_models.AccessTicketSelection _historyTicketSelection(
+    AccessHistoryEntry entry,
+    AccessHistoryTicketSnapshot ticket,
+  ) {
+    return ticket_models.AccessTicketSelection(
+      eventId: ticket.eventId,
+      ticketId: ticket.id,
+      query: ticket.code,
+      matchReason: ticket_models.TicketSearchMatchReason.other,
+      ticket: _mapHistoryTicketSnapshot(ticket),
+      contextLabel: _sourceLabel(entry.source),
+    );
+  }
+
+  HistoryScanResultSnapshot _resultSnapshotFromOutcome(
+    AccessScanOutcome outcome,
+  ) {
+    return HistoryScanResultSnapshot(
+      resultCode: outcome.resultCode,
+      reasonCode: outcome.displayReasonLabel,
+      sourceLabel: _sourceLabel(outcome.source.name),
+      referenceLabel:
+          outcome.ticket?.code ?? outcome.normalizedInput ?? outcome.rawInput,
+      subject: outcome.ticket?.displayName,
+      ticketTypeLabel: outcome.ticket?.ticketTypeLabel,
+      ticketTypeDescription:
+          outcome.ticket?.ticketTypeDescriptionLabel ?? outcome.displayBody,
+      attemptedAt: outcome.scanLog?.createdAt,
+    );
+  }
+
+  String _sourceLabel(String? source) {
+    switch (source) {
+      case 'scanner':
+        return 'Escáner';
+      case 'manual_code':
+        return 'Código manual';
+      case 'manual_search':
+        return 'Búsqueda manual';
+      case 'manual_detail':
+        return 'Detalle manual';
+      default:
+        return source ?? 'Otra fuente';
+    }
+  }
+
+  void _openLastScan(_LastScanInfo? lastScanInfo) {
+    if (lastScanInfo == null) {
+      return;
+    }
+
+    final resultSnapshot = lastScanInfo.resultSnapshot;
+    if (resultSnapshot != null) {
+      openHistoryScanResultScreen(context, snapshot: resultSnapshot);
+      return;
+    }
+
+    final selection = lastScanInfo.ticketSelection;
+    if (selection != null) {
+      ref.read(accessSelectedTicketProvider.notifier).state = selection;
+      ref.read(accessLatestCheckInOutcomeProvider.notifier).state = null;
+      widget.onOpenTicketDetail?.call();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final currentEventId = _normalizedEventId(
+      ref.watch(accessCurrentEventIdProvider),
+    );
+    final historyState = currentEventId == null
+        ? null
+        : ref
+              .watch(accessHistoryControllerProvider(currentEventId))
+              .valueOrNull;
+    final displayedLastScan = _resolveDisplayedLastScan(
+      eventId: currentEventId,
+      historyLastScan: _lastScanInfoFromHistoryState(
+        currentEventId,
+        historyState,
+      ),
+      optimisticLastScan: _lastScanInfo,
+    );
     final parentNavigationScope = OperatorNavigationScope.maybeOf(context);
     final mediaQuery = MediaQuery.of(context);
     final topPadding = mediaQuery.viewPadding.top;
@@ -579,10 +886,15 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                       fit: BoxFit.cover,
                       scanWindow: scanWindow,
                       onDetect: _handleDetection,
-                      errorBuilder: (context, error, child) {
-                        return _CameraErrorView(error: error);
+                      errorBuilder: (context, error) {
+                        return _CameraErrorView(
+                          error: error,
+                          onRetry: () {
+                            unawaited(_syncScannerState());
+                          },
+                        );
                       },
-                      placeholderBuilder: (context, child) {
+                      placeholderBuilder: (context) {
                         return const ColoredBox(color: Colors.black);
                       },
                     ),
@@ -686,9 +998,9 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                   top: scanWindow.bottom + 20,
                   child: Center(
                     child: _GlassyButton(
-                      label: 'Validar manualmente',
+                      label: 'Buscar ticket',
                       icon: Icons.keyboard_alt_rounded,
-                      onTap: widget.onOpenManualCode,
+                      onTap: widget.onOpenManualSearch,
                     ),
                   ),
                 ),
@@ -732,7 +1044,8 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                     builder: (context, child) {
                       final accent = _accentForResultCode(_overlayResultCode!);
                       final icon = _iconForResultCode(_overlayResultCode!);
-                      final headline = accessScanHeadlineForResultCode(
+                      final headline = _overlayHeadline(
+                        _overlayOutcome,
                         _overlayResultCode!,
                       );
                       final kicker = _badgeKickerForResultCode(
@@ -796,14 +1109,13 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                   right: 0,
                   bottom: 0,
                   child: _BottomLastScanPanel(
-                    lastScan: _lastScanInfo,
+                    lastScan: displayedLastScan,
                     onOpenHistory: () => showRecentHistoryBottomSheet(
                       context,
-                      eventId: ref.read(accessCurrentEventIdProvider),
+                      eventId: currentEventId,
                       onOpenTicketDetail: widget.onOpenTicketDetail,
                     ),
-                    onTapLastScan: _openLastScanTicketDetail,
-                    accentForResultCode: _accentForResultCode,
+                    onTapLastScan: () => _openLastScan(displayedLastScan),
                   ),
                 ),
               ],
@@ -824,13 +1136,11 @@ class _BottomLastScanPanel extends StatelessWidget {
     required this.lastScan,
     required this.onOpenHistory,
     required this.onTapLastScan,
-    required this.accentForResultCode,
   });
 
   final _LastScanInfo? lastScan;
   final VoidCallback? onOpenHistory;
-  final VoidCallback onTapLastScan;
-  final Color Function(String) accentForResultCode;
+  final VoidCallback? onTapLastScan;
 
   @override
   Widget build(BuildContext context) {
@@ -886,77 +1196,17 @@ class _BottomLastScanPanel extends StatelessWidget {
   }
 
   Widget _buildLastScanRow(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     final scan = lastScan!;
-    final accent = accentForResultCode(scan.resultCode);
-    final headline = accessScanHeadlineForResultCode(scan.resultCode);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: GestureDetector(
-        onTap: scan.ticket != null ? onTapLastScan : null,
-        child: Container(
-          padding: EdgeInsets.zero,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceLow,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: accent.withValues(alpha: 0.18)),
-          ),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: accent,
-                    borderRadius: const BorderRadius.horizontal(
-                      left: Radius.circular(10),
-                    ),
-                  ),
-                  child: const SizedBox(width: 4),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                scan.displayName,
-                                style: textTheme.titleLarge?.copyWith(
-                                  fontSize: 16,
-                                  color: AppColors.onSurface,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                '${scan.ticketType} · ${scan.code}',
-                                style: textTheme.bodyMedium?.copyWith(
-                                  fontSize: 13,
-                                  color: AppColors.onSurfaceMuted,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        LemaStatusPill(label: headline, color: accent),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+      child: AccessHistoryListRow(
+        titleLabel: scan.titleLabel,
+        subtitleLabel: scan.subtitleLabel,
+        resultLabel: historyResultLabel(scan.resultCode),
+        resultColor: historyResultColor(scan.resultCode),
+        relativeTimeLabel: formatRelativeTime(scan.createdAt),
+        onTap: onTapLastScan,
       ),
     );
   }
@@ -1197,14 +1447,24 @@ class _GlassyButton extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _CameraErrorView extends StatelessWidget {
-  const _CameraErrorView({required this.error});
+  const _CameraErrorView({required this.error, required this.onRetry});
 
   final MobileScannerException error;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final message = error.errorDetails?.message ?? error.toString();
+    final normalizedMessage = message.toLowerCase();
+    final isPermissionIssue =
+        normalizedMessage.contains('permission') ||
+        normalizedMessage.contains('denied') ||
+        normalizedMessage.contains('access denied') ||
+        normalizedMessage.contains('not authorized');
+    final helperText = isPermissionIssue
+        ? 'Activa el acceso a la cámara para Lema Access en los ajustes del sistema y vuelve a intentarlo.'
+        : 'Cierra y vuelve a abrir el escáner. Si el problema continúa, revisa los permisos de cámara del dispositivo.';
 
     return Container(
       color: Colors.black,
@@ -1230,6 +1490,16 @@ class _CameraErrorView extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 12),
+            Text(
+              helperText,
+              style: textTheme.bodySmall?.copyWith(
+                color: AppColors.onSurfaceMuted.withValues(alpha: 0.84),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 18),
+            FilledButton(onPressed: onRetry, child: const Text('Reintentar')),
           ],
         ),
       ),

@@ -39,7 +39,7 @@ class SearchResultsScreen extends ConsumerWidget {
                 style: textTheme.labelSmall?.copyWith(color: AppColors.primary),
               ),
               const SizedBox(height: 8),
-              Text('Búsqueda manual', style: textTheme.displayMedium),
+              Text('Buscar ticket', style: textTheme.displayMedium),
               const SizedBox(height: 8),
               if (!hasEventContext || !hasQuery)
                 _ContextNotice(

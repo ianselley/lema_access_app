@@ -326,11 +326,24 @@ class LemaResultScreenLayout extends StatelessWidget {
               physics: const BouncingScrollPhysics(),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [...content, const Spacer(), ...actions],
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: content,
+                    ),
+                    if (actions.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: actions,
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -501,66 +514,69 @@ class LemaResultFocusCard extends StatelessWidget {
     final trimmedMeta = meta?.trim();
     final trimmedDescription = description?.trim();
 
-    return LemaPanel(
-      color: AppColors.surfaceLow,
-      borderColor: accent.withValues(alpha: 0.22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(14),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLow.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: accent.withValues(alpha: 0.14)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Icon(icon, size: 22, color: accent),
+                  ),
                 ),
-                child: Icon(icon, size: 22, color: accent),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: textTheme.headlineMedium?.copyWith(color: accent),
-                    ),
-                    if (trimmedMeta != null && trimmedMeta.isNotEmpty) ...[
-                      const SizedBox(height: 6),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        trimmedMeta,
-                        style: textTheme.labelLarge?.copyWith(
-                          color: AppColors.onSurfaceMuted,
+                        title,
+                        style: textTheme.headlineMedium?.copyWith(
+                          color: accent,
                         ),
                       ),
+                      if (trimmedMeta != null && trimmedMeta.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          trimmedMeta,
+                          style: textTheme.labelLarge?.copyWith(
+                            color: AppColors.onSurfaceMuted,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          if (trimmedDescription != null && trimmedDescription.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.backgroundAlt.withValues(alpha: 0.65),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: accent.withValues(alpha: 0.12)),
-              ),
-              child: Text(
+              ],
+            ),
+            if (trimmedDescription != null &&
+                trimmedDescription.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
                 trimmedDescription,
                 style: textTheme.bodyLarge?.copyWith(
                   color: AppColors.onSurface,
+                  height: 1.4,
                 ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

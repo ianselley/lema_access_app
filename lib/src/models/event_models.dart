@@ -102,9 +102,9 @@ class AccessBootstrap {
           ? null
           : AccessProfile.fromJson(readMap(json['profile'])),
       accessibleEventCount: readInt(json['accessible_event_count']),
-      eventsPreview: readMapList(json['events_preview'])
-          .map(AccessBootstrapEventPreview.fromJson)
-          .toList(growable: false),
+      eventsPreview: readMapList(
+        json['events_preview'],
+      ).map(AccessBootstrapEventPreview.fromJson).toList(growable: false),
       suggestedEventId: readNullableString(json['suggested_event_id']),
       flags: AccessBootstrapFlags.fromJson(readMap(json['flags'])),
     );
@@ -341,6 +341,54 @@ class AccessEventSummary {
   final DateTime? lastActivityAt;
 }
 
+class AccessScannerInviteClaimResult {
+  const AccessScannerInviteClaimResult({
+    required this.scope,
+    required this.brandId,
+    required this.brandMemberId,
+    required this.eventIds,
+    required this.eventCount,
+    required this.claimedAt,
+    required this.expiresAt,
+  });
+
+  factory AccessScannerInviteClaimResult.fromJson(Map<String, dynamic> json) {
+    return AccessScannerInviteClaimResult(
+      scope: readString(json['scope']),
+      brandId: readNullableString(json['brand_id']),
+      brandMemberId: readNullableString(json['brand_member_id']),
+      eventIds: readStringList(json['event_ids']),
+      eventCount: _readNullableInt(json['event_count']),
+      claimedAt: readNullableDateTime(json['claimed_at']),
+      expiresAt: readNullableDateTime(json['expires_at']),
+    );
+  }
+
+  final String scope;
+  final String? brandId;
+  final String? brandMemberId;
+  final List<String> eventIds;
+  final int? eventCount;
+  final DateTime? claimedAt;
+  final DateTime? expiresAt;
+
+  bool get isBrandMemberClaim => scope == 'brand_member';
+
+  int get resolvedEventCount => eventCount ?? eventIds.length;
+
+  static int? _readNullableInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return null;
+  }
+}
+
 class AccessActor {
   const AccessActor({
     required this.userId,
@@ -465,7 +513,9 @@ class AccessTicketSnapshot {
       id: readString(json['id']),
       eventId: readString(json['event_id']),
       ticketOrderId: readNullableString(json['ticket_order_id']),
-      ticketOrderAttendeeId: readNullableString(json['ticket_order_attendee_id']),
+      ticketOrderAttendeeId: readNullableString(
+        json['ticket_order_attendee_id'],
+      ),
       ticketTypeId: readNullableString(json['ticket_type_id']),
       code: readNullableString(json['code']),
       status: readString(json['status']),
@@ -616,9 +666,9 @@ class AccessSearchPage {
 
   factory AccessSearchPage.fromJson(Map<String, dynamic> json) {
     return AccessSearchPage(
-      items: readMapList(json['items'])
-          .map(AccessSearchResultItem.fromJson)
-          .toList(growable: false),
+      items: readMapList(
+        json['items'],
+      ).map(AccessSearchResultItem.fromJson).toList(growable: false),
       totalCount: readInt(json['total_count']),
       limit: readInt(json['limit']),
       offset: readInt(json['offset']),
@@ -694,9 +744,9 @@ class AccessTicketDetail {
       lastScanResult: readNullableMap(json['last_scan_result']) == null
           ? null
           : AccessScanLog.fromJson(readMap(json['last_scan_result'])),
-      validationHistory: readMapList(json['validation_history'])
-          .map(AccessValidationHistoryItem.fromJson)
-          .toList(growable: false),
+      validationHistory: readMapList(
+        json['validation_history'],
+      ).map(AccessValidationHistoryItem.fromJson).toList(growable: false),
     );
   }
 
@@ -784,9 +834,9 @@ class AccessHistoryPage {
 
   factory AccessHistoryPage.fromJson(Map<String, dynamic> json) {
     return AccessHistoryPage(
-      items: readMapList(json['items'])
-          .map(AccessHistoryItem.fromJson)
-          .toList(growable: false),
+      items: readMapList(
+        json['items'],
+      ).map(AccessHistoryItem.fromJson).toList(growable: false),
       totalCount: readInt(json['total_count']),
       summary: AccessHistorySummary.fromJson(readMap(json['summary'])),
       limit: readInt(json['limit']),
@@ -825,9 +875,9 @@ class AccessEventHome {
       party: AccessParty.fromJson(readMap(json['party'])),
       place: AccessPlace.fromJson(readMap(json['place'])),
       counters: AccessEventCounters.fromJson(readMap(json['counters'])),
-      recentHistoryPreview: readMapList(json['recent_history_preview'])
-          .map(AccessHistoryItem.fromJson)
-          .toList(growable: false),
+      recentHistoryPreview: readMapList(
+        json['recent_history_preview'],
+      ).map(AccessHistoryItem.fromJson).toList(growable: false),
       lastActivityAt: readNullableDateTime(json['last_activity_at']),
     );
   }

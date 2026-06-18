@@ -63,10 +63,10 @@ class NotFoundResultScreen extends ConsumerWidget {
           LemaResultFocusCard(
             accent: AppColors.primary,
             icon: Icons.manage_search_rounded,
-            title: 'Búsqueda manual recomendada',
+            title: 'Buscar ticket',
             meta: outcome?.normalizedInput ?? 'Sin referencia disponible',
             description:
-                'No existe una coincidencia directa para esta lectura. Prueba una búsqueda manual con nombre, email, teléfono, código o pedido.',
+                'No existe una coincidencia directa para esta lectura. Busca por nombre, email, teléfono, código o pedido.',
           ),
           if (facts.isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -75,7 +75,7 @@ class NotFoundResultScreen extends ConsumerWidget {
         ],
         actions: [
           LemaPrimaryButton(
-            label: 'Búsqueda manual',
+            label: 'Buscar ticket',
             icon: Icons.search_rounded,
             onPressed: onManualSearch,
           ),

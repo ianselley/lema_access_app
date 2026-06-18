@@ -9,6 +9,8 @@ import '../models/ticket_models.dart';
 import '../providers/ticket_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
+import 'event_ui.dart';
+import 'history_scan_result_screen.dart';
 
 /// Shows the recent-history bottom sheet.
 ///
@@ -88,6 +90,15 @@ class _RecentHistorySheetState extends ConsumerState<_RecentHistorySheet> {
   }
 
   void _openTicketDetail(AccessHistoryEntry item) {
+    if (historyResultNeedsExplanation(item.resultCode)) {
+      Navigator.of(context).pop();
+      openHistoryScanResultScreen(
+        context,
+        snapshot: HistoryScanResultSnapshot.fromHistoryEntry(item),
+      );
+      return;
+    }
+
     final ticket = item.ticket;
     if (ticket == null) {
       return;
@@ -118,6 +129,7 @@ class _RecentHistorySheetState extends ConsumerState<_RecentHistorySheet> {
     final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
 
     return DraggableScrollableSheet(
+      expand: false,
       initialChildSize: 0.65,
       minChildSize: 0.35,
       maxChildSize: 0.92,
@@ -130,12 +142,7 @@ class _RecentHistorySheetState extends ConsumerState<_RecentHistorySheet> {
           decoration: const BoxDecoration(
             color: AppColors.background,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            border: Border(
-              top: BorderSide(
-                color: Color(0xFF2A2325),
-                width: 1,
-              ),
-            ),
+            border: Border(top: BorderSide(color: Color(0xFF2A2325), width: 1)),
           ),
           child: Column(
             children: [
@@ -271,23 +278,22 @@ class _HistoryList extends StatelessWidget {
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final item = state.items[index];
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          bottom: index == state.items.length - 1 ? 0 : 10,
-                        ),
-                        child: _HistoryCard(
-                          item: item,
-                          onTap: item.ticket != null
-                              ? () => onOpenTicketDetail(item)
-                              : null,
-                        ),
-                      );
-                    },
-                    childCount: state.items.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final item = state.items[index];
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: index == state.items.length - 1 ? 0 : 10,
+                      ),
+                      child: _HistoryCard(
+                        item: item,
+                        onTap:
+                            item.ticket != null ||
+                                historyResultNeedsExplanation(item.resultCode)
+                            ? () => onOpenTicketDetail(item)
+                            : null,
+                      ),
+                    );
+                  }, childCount: state.items.length),
                 ),
               ),
 
@@ -307,9 +313,7 @@ class _HistoryList extends StatelessWidget {
               ),
 
             // Bottom safe area spacer
-            SliverToBoxAdapter(
-              child: SizedBox(height: 24 + bottomPadding),
-            ),
+            SliverToBoxAdapter(child: SizedBox(height: 24 + bottomPadding)),
           ],
         ),
       ),
@@ -386,16 +390,12 @@ class _Header extends StatelessWidget {
       children: [
         Text(
           'HISTORIAL',
-          style: textTheme.labelSmall?.copyWith(
-            color: AppColors.primary,
-          ),
+          style: textTheme.labelSmall?.copyWith(color: AppColors.primary),
         ),
         const SizedBox(height: 6),
         Text(
           eventId == null ? 'Sin evento activo' : 'Actividad reciente',
-          style: textTheme.displayMedium?.copyWith(
-            color: AppColors.onSurface,
-          ),
+          style: textTheme.displayMedium?.copyWith(color: AppColors.onSurface),
         ),
         const SizedBox(height: 6),
         Text(
@@ -652,56 +652,10 @@ class _ErrorState extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 _HistoryTone _toneForResultCode(String resultCode) {
-  switch (resultCode) {
-    case 'valid':
-      return const _HistoryTone(
-        label: 'Válido',
-        accent: AppColors.success,
-        icon: Icons.check_circle_rounded,
-      );
-    case 'already_used':
-      return const _HistoryTone(
-        label: 'Ya usado',
-        accent: AppColors.warning,
-        icon: Icons.history_toggle_off_rounded,
-      );
-    case 'wrong_event':
-      return const _HistoryTone(
-        label: 'Evento incorrecto',
-        accent: AppColors.error,
-        icon: Icons.swap_horiz_rounded,
-      );
-    case 'cancelled_or_invalid':
-      return const _HistoryTone(
-        label: 'Inválido',
-        accent: AppColors.error,
-        icon: Icons.block_rounded,
-      );
-    case 'not_found':
-      return const _HistoryTone(
-        label: 'No encontrado',
-        accent: Color(0xFF9CA3AF),
-        icon: Icons.search_off_rounded,
-      );
-    case 'forbidden':
-      return const _HistoryTone(
-        label: 'Sin permiso',
-        accent: AppColors.primaryStrong,
-        icon: Icons.lock_outline,
-      );
-    case 'temporary_error':
-      return const _HistoryTone(
-        label: 'Error temporal',
-        accent: AppColors.warning,
-        icon: Icons.cloud_off_rounded,
-      );
-    default:
-      return const _HistoryTone(
-        label: 'Desconocido',
-        accent: AppColors.onSurfaceMuted,
-        icon: Icons.help_outline_rounded,
-      );
-  }
+  return _HistoryTone(
+    label: historyResultLabel(resultCode),
+    accent: historyResultColor(resultCode),
+  );
 }
 
 String _sourceLabel(String source) {
@@ -734,13 +688,8 @@ String _formatRelativeTime(DateTime createdAt) {
 }
 
 class _HistoryTone {
-  const _HistoryTone({
-    required this.label,
-    required this.accent,
-    required this.icon,
-  });
+  const _HistoryTone({required this.label, required this.accent});
 
   final String label;
   final Color accent;
-  final IconData icon;
 }

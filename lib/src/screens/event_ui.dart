@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/event_models.dart';
 import '../theme/app_theme.dart';
+import '../widgets/lema_components.dart';
 
 extension AccessEventSummaryUi on AccessEventSummary {
   String get displayName => party.name ?? 'Evento sin nombre';
@@ -196,6 +197,84 @@ Color historyResultColor(String? resultCode) {
       return AppColors.primaryStrong;
     default:
       return AppColors.primary;
+  }
+}
+
+bool historyResultNeedsExplanation(String? resultCode) {
+  switch (resultCode) {
+    case 'valid':
+    case 'already_used':
+      return false;
+    default:
+      return true;
+  }
+}
+
+class AccessHistoryListRow extends StatelessWidget {
+  const AccessHistoryListRow({
+    super.key,
+    required this.titleLabel,
+    required this.subtitleLabel,
+    required this.resultLabel,
+    required this.resultColor,
+    required this.relativeTimeLabel,
+    this.onTap,
+  });
+
+  final String titleLabel;
+  final String subtitleLabel;
+  final String resultLabel;
+  final Color resultColor;
+  final String relativeTimeLabel;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return LemaStatusStripCard(
+      accent: resultColor,
+      onTap: onTap,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titleLabel,
+                  style: textTheme.titleMedium?.copyWith(
+                    color: AppColors.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitleLabel,
+                  style: textTheme.labelMedium?.copyWith(
+                    color: AppColors.onSurfaceMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                relativeTimeLabel,
+                style: textTheme.labelSmall?.copyWith(
+                  color: AppColors.onSurfaceMuted,
+                ),
+              ),
+              const SizedBox(height: 8),
+              LemaStatusPill(label: resultLabel, color: resultColor),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 

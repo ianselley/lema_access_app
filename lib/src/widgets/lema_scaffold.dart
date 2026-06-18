@@ -37,7 +37,8 @@ class OperatorNavigationScope extends InheritedWidget {
   final VoidCallback? onBack;
 
   static OperatorNavigationScope? maybeOf(BuildContext context) {
-    return context.dependOnInheritedWidgetOfExactType<OperatorNavigationScope>();
+    return context
+        .dependOnInheritedWidgetOfExactType<OperatorNavigationScope>();
   }
 
   @override
@@ -71,6 +72,7 @@ class LemaScaffold extends StatelessWidget {
     this.bottomNavigation,
     this.floatingActionButton,
     this.padding = const EdgeInsets.fromLTRB(20, 20, 20, 24),
+    this.showAutomaticBackButton = true,
   });
 
   final Widget body;
@@ -78,6 +80,7 @@ class LemaScaffold extends StatelessWidget {
   final Widget? bottomNavigation;
   final Widget? floatingActionButton;
   final EdgeInsetsGeometry padding;
+  final bool showAutomaticBackButton;
 
   @override
   Widget build(BuildContext context) {
@@ -87,11 +90,11 @@ class LemaScaffold extends StatelessWidget {
         bottomNavigation ??
         OperatorShellScope.maybeOf(context)?.bottomNavigation;
     final navigationScope = OperatorNavigationScope.maybeOf(context);
-    final modalRoute = ModalRoute.of(context);
-    final isFirstRoute = modalRoute?.isFirst ?? true;
-    final isExplicitlyDisabled = navigationScope?.canGoBack == false;
+    final navigator = Navigator.maybeOf(context);
+    final canPopRoute = navigator?.canPop() ?? false;
+    final canGoBack = navigationScope?.canGoBack ?? false;
     final showBackButton =
-        !isExplicitlyDisabled && !isFirstRoute && navigationScope?.onBack != null;
+        showAutomaticBackButton && (canPopRoute || canGoBack);
     final topPadding = switch ((showBackButton, resolvedPadding.top)) {
       (true, final top) when top >= 16 => 2.0,
       (true, final top) when top >= 10 => 1.0,
@@ -139,7 +142,12 @@ class LemaScaffold extends StatelessWidget {
                         ),
                         foregroundColor: AppColors.onSurfaceMuted,
                       ),
-                      onPressed: navigationScope!.onBack,
+                      onPressed: () async {
+                        final didPop = await navigator?.maybePop() ?? false;
+                        if (!didPop) {
+                          navigationScope?.onBack?.call();
+                        }
+                      },
                       icon: const Icon(Icons.arrow_back_rounded, size: 18),
                       label: const Text('Volver'),
                     ),
@@ -164,9 +172,7 @@ class LemaScaffold extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AppColors.background.withValues(alpha: 0.84),
                       border: Border.all(
-                        color: AppColors.outlineVariant.withValues(
-                          alpha: 0.28,
-                        ),
+                        color: AppColors.outlineVariant.withValues(alpha: 0.28),
                       ),
                     ),
                     child: shellBottomNavigation,

@@ -69,7 +69,7 @@ class ScanResultScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          accessScanHeadlineForResultCode(outcome.resultCode),
+                          outcome.displayHeadline,
                           style: textTheme.titleLarge,
                         ),
                       ],
@@ -85,20 +85,20 @@ class ScanResultScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      accessScanHeadlineForResultCode(outcome.resultCode),
+                      outcome.displayHeadline,
                       style: textTheme.displayMedium?.copyWith(color: accent),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      accessScanBodyForResultCode(outcome.resultCode),
+                      outcome.displayBody,
                       style: textTheme.bodyMedium?.copyWith(
                         color: AppColors.onSurfaceMuted,
                       ),
                     ),
-                    if (outcome.reasonCode != null) ...[
+                    if (outcome.displayReasonLabel != null) ...[
                       const SizedBox(height: 14),
                       LemaTag(
-                        label: outcome.reasonCode!,
+                        label: outcome.displayReasonLabel!,
                         color: AppColors.surfaceHigh,
                         textColor: accent,
                         icon: Icons.info_outline,

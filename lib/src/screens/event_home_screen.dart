@@ -10,6 +10,7 @@ import '../screens/event_ui.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
+import 'history_scan_result_screen.dart';
 import 'recent_history_screen.dart';
 
 class EventHomeScreen extends ConsumerWidget {
@@ -100,15 +101,19 @@ class EventHomeScreen extends ConsumerWidget {
                                 padding: EdgeInsets.only(
                                   bottom: index == history.length - 1 ? 0 : 10,
                                 ),
-                                child: _HistoryRow(
-                                  entry: history[index],
-                                  onTap: history[index].ticket != null
-                                      ? () => _openTicketDetail(
-                                            ref,
-                                            history[index],
-                                            onOpenTicketDetail,
-                                          )
-                                      : null,
+                                child: AccessHistoryListRow(
+                                  titleLabel: history[index].titleLabel,
+                                  subtitleLabel: history[index].subtitleLabel,
+                                  resultLabel: history[index].resultLabel,
+                                  resultColor: history[index].resultColor,
+                                  relativeTimeLabel:
+                                      history[index].relativeTimeLabel,
+                                  onTap: () => _openHistoryEntry(
+                                    context,
+                                    ref,
+                                    history[index],
+                                    onOpenTicketDetail,
+                                  ),
                                 ),
                               ),
                           ],
@@ -118,7 +123,7 @@ class EventHomeScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              if (bottomOverlay != null) bottomOverlay!,
+              ?bottomOverlay,
             ],
           ),
         );
@@ -127,15 +132,26 @@ class EventHomeScreen extends ConsumerWidget {
   }
 }
 
-void _openTicketDetail(
+void _openHistoryEntry(
+  BuildContext context,
   WidgetRef ref,
   AccessHistoryItem item,
   VoidCallback? onOpen,
 ) {
+  if (historyResultNeedsExplanation(item.resultCode)) {
+    openHistoryScanResultScreen(
+      context,
+      snapshot: HistoryScanResultSnapshot.fromEventHistoryItem(item),
+    );
+    return;
+  }
+
   final ticket = item.ticket;
   if (ticket == null) return;
 
-  ref.read(accessSelectedTicketProvider.notifier).state = tm.AccessTicketSelection(
+  ref
+      .read(accessSelectedTicketProvider.notifier)
+      .state = tm.AccessTicketSelection(
     eventId: ticket.eventId,
     ticketId: ticket.id,
     query: ticket.code ?? item.normalizedInput ?? item.rawInput ?? 'Sin código',
@@ -302,65 +318,6 @@ class _TopHero extends StatelessWidget {
             style: textTheme.bodyMedium?.copyWith(
               color: AppColors.onSurfaceMuted,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HistoryRow extends StatelessWidget {
-  const _HistoryRow({required this.entry, this.onTap});
-
-  final AccessHistoryItem entry;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return LemaStatusStripCard(
-      accent: entry.resultColor,
-      onTap: onTap,
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.titleLabel,
-                  style: textTheme.titleMedium?.copyWith(
-                    color: AppColors.onSurface,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  entry.subtitleLabel,
-                  style: textTheme.labelMedium?.copyWith(
-                    color: AppColors.onSurfaceMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                entry.relativeTimeLabel,
-                style: textTheme.labelSmall?.copyWith(
-                  color: AppColors.onSurfaceMuted,
-                ),
-              ),
-              const SizedBox(height: 8),
-              LemaStatusPill(
-                label: entry.resultLabel,
-                color: entry.resultColor,
-              ),
-            ],
           ),
         ],
       ),
