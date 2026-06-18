@@ -101,7 +101,10 @@ if [[ $# -gt 0 ]] && is_valid_environment "${1}"; then
   shift
 fi
 
-mapfile -t dart_define_args < <(build_dart_define_args "${environment}")
+dart_define_args=()
+while IFS= read -r dart_define_arg; do
+  dart_define_args+=("${dart_define_arg}")
+done < <(build_dart_define_args "${environment}")
 
 echo "Running flutter run with APP_ENV=${environment}" >&2
 exec flutter run "${dart_define_args[@]}" "$@"
