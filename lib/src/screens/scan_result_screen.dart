@@ -119,8 +119,6 @@ class ScanResultScreen extends ConsumerWidget {
                   children: [
                     Text('Lectura registrada', style: textTheme.titleLarge),
                     const SizedBox(height: 10),
-                    _InfoRow(label: 'Fuente', value: outcome.source.name),
-                    const SizedBox(height: 8),
                     _InfoRow(label: 'Entrada', value: outcome.rawInput),
                     if (outcome.scanLog?.createdAt != null) ...[
                       const SizedBox(height: 8),

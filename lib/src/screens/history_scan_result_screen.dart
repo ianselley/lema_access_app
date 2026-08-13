@@ -94,11 +94,6 @@ class HistoryScanResultScreen extends StatelessWidget {
           value: snapshot.ticketTypeLabel!,
           icon: Icons.confirmation_number_outlined,
         ),
-      LemaResultFact(
-        label: 'Origen',
-        value: snapshot.sourceLabel,
-        icon: Icons.qr_code_scanner_rounded,
-      ),
       if (snapshot.attemptedAt != null)
         LemaResultFact(
           label: 'Intento',

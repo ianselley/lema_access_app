@@ -10,6 +10,7 @@ class AccessTicketService {
   Future<AccessTicketSearchPage> searchEventTickets({
     required String eventId,
     required String query,
+    required bool checkedIn,
     int limit = 20,
     int offset = 0,
   }) async {
@@ -18,6 +19,7 @@ class AccessTicketService {
       params: <String, dynamic>{
         'p_event_id': eventId,
         'p_query': query,
+        'p_checked_in': checkedIn,
         'p_limit': limit,
         'p_offset': offset,
       },
@@ -31,10 +33,7 @@ class AccessTicketService {
   }) async {
     final response = await _client.call(
       'access_get_ticket_detail',
-      params: <String, dynamic>{
-        'p_event_id': eventId,
-        'p_ticket_id': ticketId,
-      },
+      params: <String, dynamic>{'p_event_id': eventId, 'p_ticket_id': ticketId},
     );
     return _readEnvelope(response, AccessTicketDetail.fromJson);
   }
@@ -51,6 +50,17 @@ class AccessTicketService {
         'p_ticket_id': ticketId,
         'p_source': source,
       },
+    );
+    return _readEnvelope(response, AccessTicketCheckInOutcome.fromJson);
+  }
+
+  Future<AccessTicketCheckInOutcome> undoTicketCheckIn({
+    required String eventId,
+    required String ticketId,
+  }) async {
+    final response = await _client.call(
+      'access_undo_ticket_check_in',
+      params: <String, dynamic>{'p_event_id': eventId, 'p_ticket_id': ticketId},
     );
     return _readEnvelope(response, AccessTicketCheckInOutcome.fromJson);
   }

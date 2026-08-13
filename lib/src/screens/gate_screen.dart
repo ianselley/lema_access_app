@@ -11,12 +11,44 @@ import '../core/failure.dart';
 import '../core/debug_log.dart';
 import '../providers/auth_providers.dart';
 import '../providers/bootstrap_providers.dart';
+import '../providers/membership_providers.dart';
+import '../services/deep_link_service.dart';
 
-class AccessGateScreen extends ConsumerWidget {
-  const AccessGateScreen({super.key});
+class AccessGateScreen extends ConsumerStatefulWidget {
+  const AccessGateScreen({super.key, this.deepLinks});
+
+  final AccessDeepLinkService? deepLinks;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AccessGateScreen> createState() => _AccessGateScreenState();
+}
+
+class _AccessGateScreenState extends ConsumerState<AccessGateScreen> {
+  String? _claimedCode;
+
+  void _claimPendingInvite() {
+    final deepLinks = widget.deepLinks;
+    final code = deepLinks?.pendingScannerInviteCode;
+    if (code == null || code == _claimedCode) {
+      return;
+    }
+
+    _claimedCode = code;
+    Future<void>(() async {
+      final result = await ref
+          .read(accessScannerInviteClaimControllerProvider.notifier)
+          .claimCode(code);
+      if (result == null || !mounted) {
+        return;
+      }
+
+      await deepLinks!.clearPendingScannerInviteCode();
+      ref.invalidate(accessBootstrapProvider);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final sessionAsync = ref.watch(authSessionProvider);
 
     return sessionAsync.when(
@@ -58,6 +90,8 @@ class AccessGateScreen extends ConsumerWidget {
                 initialEmail: bootstrap.email ?? session.user.email,
               );
             }
+
+            _claimPendingInvite();
 
             return const OperatorApp();
           },

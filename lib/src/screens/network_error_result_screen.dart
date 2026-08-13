@@ -37,12 +37,6 @@ class NetworkErrorResultScreen extends ConsumerWidget {
           value: failure!.code,
           icon: Icons.error_outline_rounded,
         ),
-      if (outcome != null)
-        LemaResultFact(
-          label: 'Origen',
-          value: outcome.source.name,
-          icon: Icons.qr_code_scanner_rounded,
-        ),
       if (outcome?.normalizedInput != null)
         LemaResultFact(
           label: 'Entrada',

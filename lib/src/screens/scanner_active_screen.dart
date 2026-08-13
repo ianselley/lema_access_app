@@ -476,8 +476,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
       return reasonLabel;
     }
 
-    final source = outcome.source.name.trim();
-    return source.isEmpty ? null : source;
+    return null;
   }
 
   String _overlayHeadline(AccessScanOutcome? outcome, String resultCode) {
@@ -580,7 +579,6 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
       if (entry.ticket?.code.trim().isNotEmpty ?? false) entry.ticket!.code,
       if (entry.normalizedInput?.trim().isNotEmpty ?? false)
         entry.normalizedInput!,
-      if (entry.source.trim().isNotEmpty) entry.source,
     ];
 
     if (parts.isEmpty) {

@@ -61,6 +61,11 @@ class TicketDetailScreen extends ConsumerWidget {
                         onConfirmManualAccess?.call();
                       }
                     },
+                    onUndo: () async {
+                      await ref
+                          .read(accessTicketCheckInControllerProvider.notifier)
+                          .undoSelectedTicketCheckIn();
+                    },
                   ),
                 ),
               ],
@@ -78,21 +83,22 @@ class _DetailContent extends StatelessWidget {
     required this.selection,
     required this.actionState,
     required this.onConfirm,
+    required this.onUndo,
   });
 
   final AccessTicketDetail detail;
   final AccessTicketSelection selection;
   final AccessTicketCheckInState actionState;
   final Future<void> Function() onConfirm;
+  final Future<void> Function() onUndo;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final status = _ticketStatusPresentation(detail.ticket.status);
-    final canCheckIn =
-        detail.canCheckIn &&
-        actionState.isLoading == false &&
-        actionState.status != AccessActionStatus.success;
+    final canCheckIn = detail.canCheckIn && actionState.isLoading == false;
+    final canUndo =
+        detail.ticket.status == 'checked_in' && actionState.isLoading == false;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -200,15 +206,26 @@ class _DetailContent extends StatelessWidget {
             ),
           ),
         if (detail.validationHistory.isNotEmpty) const SizedBox(height: 16),
-        LemaPrimaryButton(
-          label: actionState.isLoading
-              ? 'Confirmando...'
-              : 'Confirmar acceso manual',
-          icon: actionState.isLoading
-              ? Icons.hourglass_top
-              : Icons.verified_user_outlined,
-          onPressed: canCheckIn ? onConfirm : null,
-        ),
+        if (canUndo)
+          OutlinedButton.icon(
+            onPressed: onUndo,
+            icon: const Icon(Icons.undo_outlined),
+            label: const Text('Desmarcar acceso'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.warning,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          )
+        else
+          LemaPrimaryButton(
+            label: actionState.isLoading
+                ? 'Confirmando...'
+                : 'Confirmar acceso manual',
+            icon: actionState.isLoading
+                ? Icons.hourglass_top
+                : Icons.verified_user_outlined,
+            onPressed: canCheckIn ? onConfirm : null,
+          ),
         if (actionState.status == AccessActionStatus.failure) ...[
           const SizedBox(height: 14),
           _ActionErrorBanner(state: actionState),
@@ -321,7 +338,7 @@ class _ActionErrorBanner extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            state.message ?? 'No se pudo confirmar el acceso.',
+            state.message ?? 'No se pudo actualizar el acceso.',
             style: textTheme.bodyMedium?.copyWith(
               color: AppColors.onSurfaceMuted,
             ),
@@ -353,12 +370,12 @@ class _ValidationRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${result.label} · ${_fallbackText(event.reasonCode)}',
+                  _validationLabel(event, result),
                   style: textTheme.bodyLarge,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${_fallbackText(event.source)} · ${event.actor.displayLabel}',
+                  '${_checkInMethodLabel(event.source)} · ${event.actor.displayLabel}',
                   style: textTheme.bodyMedium?.copyWith(
                     color: AppColors.onSurfaceMuted,
                   ),
@@ -376,6 +393,29 @@ class _ValidationRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+String _validationLabel(
+  AccessTicketScanLog event,
+  TicketAccessResultCode result,
+) {
+  if (event.reasonCode == 'CHECK_IN_REVERSED') {
+    return 'Acceso desmarcado';
+  }
+  return '${result.label} · ${_fallbackText(event.reasonCode)}';
+}
+
+String _checkInMethodLabel(String? source) {
+  switch (source) {
+    case 'scanner':
+      return 'Escaneado con QR';
+    case 'manual_code':
+    case 'manual_search':
+    case 'manual_detail':
+      return 'Marcado manualmente';
+    default:
+      return 'Acceso registrado';
   }
 }
 

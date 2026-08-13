@@ -5,11 +5,14 @@ import 'providers/activity_refresh_providers.dart';
 import 'providers/auth_providers.dart';
 import 'providers/bootstrap_providers.dart';
 import 'screens/gate_screen.dart';
+import 'services/deep_link_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/keyboard_dismiss_region.dart';
 
 class LemaAccessApp extends StatelessWidget {
-  const LemaAccessApp({super.key});
+  const LemaAccessApp({super.key, this.deepLinks});
+
+  final AccessDeepLinkService? deepLinks;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +28,15 @@ class LemaAccessApp extends StatelessWidget {
 
         return KeyboardDismissRegion(child: child);
       },
-      home: const _AccessLifecycleBoundary(child: AccessGateScreen()),
+      home: _AccessLifecycleBoundary(
+        child: deepLinks == null
+            ? const AccessGateScreen()
+            : AnimatedBuilder(
+                animation: deepLinks!,
+                builder: (context, child) =>
+                    AccessGateScreen(deepLinks: deepLinks),
+              ),
+      ),
     );
   }
 }

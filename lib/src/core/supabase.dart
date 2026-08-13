@@ -44,7 +44,11 @@ Future<void> initializeAccessSupabase() async {
   final config = AccessSupabaseConfig.fromEnvironment();
   accessLog('Initializing Supabase for ${config.url}', scope: 'supabase');
 
-  await Supabase.initialize(url: config.url, anonKey: config.anonKey);
+  await Supabase.initialize(
+    url: config.url,
+    anonKey: config.anonKey,
+    authOptions: const FlutterAuthClientOptions(detectSessionInUri: false),
+  );
 
   accessLog(
     'Supabase initialized. hasSession=${Supabase.instance.client.auth.currentSession != null}',

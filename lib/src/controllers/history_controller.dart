@@ -128,6 +128,7 @@ class AccessHistoryController
       final searchPage = await _ticketService.searchEventTickets(
         eventId: eventId,
         query: token,
+        checkedIn: true,
         limit: 10,
       );
 

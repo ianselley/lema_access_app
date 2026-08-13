@@ -461,13 +461,6 @@ class _HistoryCard extends StatelessWidget {
                     color: AppColors.onSurfaceMuted,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  _sourceLabel(item.source),
-                  style: textTheme.labelSmall?.copyWith(
-                    color: AppColors.onSurfaceMuted,
-                  ),
-                ),
               ],
             ),
           ),

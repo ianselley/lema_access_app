@@ -33,12 +33,6 @@ class NotFoundResultScreen extends ConsumerWidget {
           value: outcome!.normalizedInput!,
           icon: Icons.tag_rounded,
         ),
-      if (outcome != null)
-        LemaResultFact(
-          label: 'Origen',
-          value: outcome.source.name,
-          icon: Icons.qr_code_scanner_rounded,
-        ),
       if (outcome?.scanLog?.createdAt != null)
         LemaResultFact(
           label: 'Intento',

@@ -9,6 +9,7 @@ import 'auth_providers.dart';
 import 'event_providers.dart';
 
 final accessManualSearchQueryProvider = StateProvider<String>((ref) => '');
+final accessManualSearchCheckedInProvider = StateProvider<bool>((ref) => false);
 
 final accessTicketServiceProvider = Provider<AccessTicketService>((ref) {
   return AccessTicketService(ref.watch(accessRpcClientProvider));
@@ -26,6 +27,7 @@ final accessTicketSearchResultsProvider =
       ref.watch(accessActivityRefreshTickProvider);
       final eventId = ref.watch(accessCurrentEventIdProvider);
       final query = ref.watch(accessManualSearchQueryProvider).trim();
+      final checkedIn = ref.watch(accessManualSearchCheckedInProvider);
 
       if (eventId == null || eventId.trim().isEmpty) {
         throw const AccessRpcException(
@@ -43,7 +45,11 @@ final accessTicketSearchResultsProvider =
 
       return ref
           .watch(accessTicketServiceProvider)
-          .searchEventTickets(eventId: eventId, query: query);
+          .searchEventTickets(
+            eventId: eventId,
+            query: query,
+            checkedIn: checkedIn,
+          );
     });
 
 final accessSelectedTicketDetailProvider =
@@ -79,6 +85,10 @@ class AccessTicketCheckInController extends Notifier<AccessTicketCheckInState> {
     return const AccessTicketCheckInState.idle();
   }
 
+  void reset() {
+    state = const AccessTicketCheckInState.idle();
+  }
+
   Future<void> confirmSelectedTicket() async {
     final selection = ref.read(accessSelectedTicketProvider);
     ref.read(accessLatestCheckInOutcomeProvider.notifier).state = null;
@@ -112,6 +122,44 @@ class AccessTicketCheckInController extends Notifier<AccessTicketCheckInState> {
       );
     } catch (error) {
       ref.read(accessLatestCheckInOutcomeProvider.notifier).state = null;
+      state = AccessTicketCheckInState.failure(
+        code: 'UNKNOWN_ERROR',
+        message: error.toString(),
+        details: error,
+      );
+    }
+  }
+
+  Future<void> undoSelectedTicketCheckIn() async {
+    final selection = ref.read(accessSelectedTicketProvider);
+    ref.read(accessLatestCheckInOutcomeProvider.notifier).state = null;
+
+    if (selection == null) {
+      state = const AccessTicketCheckInState.failure(
+        code: 'MISSING_TICKET_CONTEXT',
+        message: 'A selected ticket is required to undo access.',
+      );
+      return;
+    }
+
+    state = const AccessTicketCheckInState.processing();
+    try {
+      final outcome = await _service.undoTicketCheckIn(
+        eventId: selection.eventId,
+        ticketId: selection.ticketId,
+      );
+      ref.read(accessLatestCheckInOutcomeProvider.notifier).state = outcome;
+      if (outcome.scanLog != null) {
+        bumpAccessActivityRefreshTick(ref);
+      }
+      state = AccessTicketCheckInState.success(outcome);
+    } on AccessRpcException catch (error) {
+      state = AccessTicketCheckInState.failure(
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      );
+    } catch (error) {
       state = AccessTicketCheckInState.failure(
         code: 'UNKNOWN_ERROR',
         message: error.toString(),

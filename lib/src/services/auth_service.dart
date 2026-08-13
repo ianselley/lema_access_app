@@ -31,6 +31,7 @@ class AccessAuthService {
     return _client.auth.signUp(
       email: email,
       password: password,
+      emailRedirectTo: 'https://lema.club/access',
       data: <String, dynamic>{
         'displayName': displayName,
         'username': username,

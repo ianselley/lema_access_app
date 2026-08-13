@@ -481,7 +481,9 @@ class AccessTicketScanLog {
       reasonCode: _readNullableString(json['reason_code']),
       source: _readNullableString(json['source']),
       inputKind: _readNullableString(json['input_kind']),
-      actor: AccessTicketActor.fromJson(_readMap(json['actor'])),
+      actor: AccessTicketActor.fromJson(
+        _maybeReadMap(json['actor']) ?? const <String, dynamic>{},
+      ),
       rawInput: _readNullableString(json['raw_input']),
       normalizedInput: _readNullableString(json['normalized_input']),
     );

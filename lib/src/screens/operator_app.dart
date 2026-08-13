@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../navigation/operator_route_observer.dart';
 import '../providers/event_providers.dart';
+import '../providers/ticket_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_scaffold.dart';
 import 'event_home_screen.dart';
@@ -174,6 +175,10 @@ class _OperatorAppState extends ConsumerState<OperatorApp>
   void _pop() {
     if (!mounted || !_canGoBack) {
       return;
+    }
+
+    if (_stack.last.page == OperatorPage.ticketDetail) {
+      ref.read(accessTicketCheckInControllerProvider.notifier).reset();
     }
 
     setState(() {
