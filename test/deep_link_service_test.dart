@@ -5,13 +5,13 @@ void main() {
   test('extracts only valid LEMA Access scanner invite links', () {
     expect(
       extractScannerInviteCode(
-        Uri.parse('https://staging.lema.club/access/join?invite_code=a1b-2c3'),
+        Uri.parse('https://lema.club/access/join?invite_code=a1b-2c3'),
       ),
       'A1B2C3',
     );
     expect(
       extractScannerInviteCode(
-        Uri.parse('https://staging.lema.club/access?invite_code=A1B-2C3'),
+        Uri.parse('https://lema.club/access?invite_code=A1B-2C3'),
       ),
       isNull,
     );
@@ -26,17 +26,13 @@ void main() {
   test('recognizes Supabase signup callbacks used by the current email', () {
     expect(
       isAccessAuthCallback(
-        Uri.parse(
-          'https://staging.lema.club/access?token_hash=token&type=signup',
-        ),
+        Uri.parse('https://lema.club/access?token_hash=token&type=signup'),
       ),
       isTrue,
     );
     expect(
       isAccessAuthCallback(
-        Uri.parse(
-          'https://staging.lema.club/access?token_hash=token&type=recovery',
-        ),
+        Uri.parse('https://lema.club/access?token_hash=token&type=recovery'),
       ),
       isFalse,
     );

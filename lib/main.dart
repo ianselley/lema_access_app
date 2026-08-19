@@ -14,7 +14,7 @@ Future<void> main() async {
     await SharedPreferences.getInstance(),
     AppLinks(),
   );
-  await deepLinks.start();
+  deepLinks.start();
   runApp(AccessAppBootstrap(deepLinks: deepLinks));
 }
 
