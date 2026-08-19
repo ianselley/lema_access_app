@@ -177,6 +177,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ).hasMatch(username.trim());
   }
 
+  String? _passwordRequirementsError(String password) {
+    final missing = [
+      if (password.length < 6) 'al menos 6 caracteres',
+      if (!RegExp(r'[A-Z]').hasMatch(password)) 'una mayúscula',
+      if (!RegExp(r'\d').hasMatch(password)) 'un número',
+    ];
+
+    if (missing.isEmpty) {
+      return null;
+    }
+
+    return 'Falta en la contraseña: ${missing.join(', ')}.';
+  }
+
   Future<void> _submitEmail() async {
     final email = _emailController.text.trim();
 
@@ -282,9 +296,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (_isSignupStep) {
       final password = _passwordController.text;
       final confirmPassword = _confirmPasswordController.text;
+      final passwordError = _passwordRequirementsError(password);
 
-      if (password.isEmpty) {
-        _showStatus('Introduce una contraseña.');
+      if (passwordError != null) {
+        _showStatus(passwordError);
         return;
       }
 

@@ -25,7 +25,7 @@ class EnvConfig {
   });
 
   static const String defaultEnvironmentName =
-      'staging'; // TODO: ALWAYS CHECK BEFORE DEPLOYING.
+      'prod'; // TODO: ALWAYS CHECK BEFORE DEPLOYING.
 
   static const EnvConfig local = EnvConfig(
     environment: AppEnvironment.local,
@@ -81,6 +81,18 @@ class EnvConfig {
   final String supabaseAnonKey;
 
   String get environmentName => environment.name;
+
+  String get accessEmailRedirectUrl => switch (environment) {
+    AppEnvironment.local => 'https://127.0.0.1:3000/access',
+    AppEnvironment.staging => 'https://staging.lema.club/access',
+    AppEnvironment.prod => 'https://lema.club/access',
+  };
+
+  String get accessDeepLinkHost => switch (environment) {
+    AppEnvironment.local => '127.0.0.1',
+    AppEnvironment.staging => 'staging.lema.club',
+    AppEnvironment.prod => 'lema.club',
+  };
 
   EnvConfig copyWith({
     AppEnvironment? environment,

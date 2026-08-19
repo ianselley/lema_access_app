@@ -5,6 +5,7 @@
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:lema.club</string>
+		<string>applinks:staging.lema.club</string>
 	</array>
 </dict>
 </plist>

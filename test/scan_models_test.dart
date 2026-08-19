@@ -91,5 +91,37 @@ void main() {
       );
       expect(accessTicketStatusLabel(outcome.ticketStatus), 'Anulado');
     });
+
+    test('preserves custom invitation details from the scan snapshot', () {
+      final outcome = AccessScanOutcome.fromJson(
+        stage: AccessScanStage.checkIn,
+        source: AccessScanSource.scanner,
+        rawInput: 'INVITACION',
+        json: <String, dynamic>{
+          'result_code': 'valid',
+          'can_check_in': true,
+          'event_match': true,
+          'ticket': <String, dynamic>{
+            'id': 'ticket-3',
+            'event_id': 'event-a',
+            'ticket_type': <String, dynamic>{
+              'name': 'Acceso backstage',
+              'description': 'Equipo de producción',
+            },
+            'attendee': <String, dynamic>{},
+            'order': <String, dynamic>{'id': 'order-3', 'status': 'paid'},
+            'code': 'INVITACION',
+            'status': 'issued',
+            'can_check_in': true,
+          },
+        },
+      );
+
+      expect(outcome.ticket?.ticketTypeLabel, 'Acceso backstage');
+      expect(
+        outcome.ticket?.ticketTypeDescriptionLabel,
+        'Equipo de producción',
+      );
+    });
   });
 }

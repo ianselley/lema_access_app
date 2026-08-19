@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/env_config.dart';
 import '../core/rpc_client.dart';
 
 class AccessAuthService {
@@ -31,7 +32,7 @@ class AccessAuthService {
     return _client.auth.signUp(
       email: email,
       password: password,
-      emailRedirectTo: 'https://lema.club/access',
+      emailRedirectTo: EnvConfig.fromEnvironment().accessEmailRedirectUrl,
       data: <String, dynamic>{
         'displayName': displayName,
         'username': username,

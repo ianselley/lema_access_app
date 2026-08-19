@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/env_config.dart';
+
 const _pendingScannerInviteCodeKey = 'pending_scanner_invite_code';
 
 class AccessDeepLinkService extends ChangeNotifier {
@@ -59,7 +61,8 @@ class AccessDeepLinkService extends ChangeNotifier {
 bool isAccessAuthCallback(Uri? uri) {
   return uri != null &&
       uri.scheme == 'https' &&
-      uri.host.toLowerCase() == 'lema.club' &&
+      uri.host.toLowerCase() ==
+          EnvConfig.fromEnvironment().accessDeepLinkHost &&
       uri.path == '/access' &&
       (uri.queryParameters.containsKey('code') ||
           uri.queryParameters['type'] == 'signup' &&
@@ -70,7 +73,8 @@ bool isAccessAuthCallback(Uri? uri) {
 String? extractScannerInviteCode(Uri? uri) {
   if (uri == null ||
       uri.scheme != 'https' ||
-      uri.host.toLowerCase() != 'lema.club' ||
+      uri.host.toLowerCase() !=
+          EnvConfig.fromEnvironment().accessDeepLinkHost ||
       uri.path != '/access/join') {
     return null;
   }
