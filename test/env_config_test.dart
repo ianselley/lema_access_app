@@ -10,4 +10,16 @@ void main() {
     expect(EnvConfig.prod.accessEmailRedirectUrl, 'https://lema.club/access');
     expect(EnvConfig.staging.accessDeepLinkHost, 'staging.lema.club');
   });
+
+  test('only enables database switching for LEMA accounts outside local', () {
+    expect(EnvConfig.canSwitchDatabaseFor('admin@lema.club'), isTrue);
+    expect(EnvConfig.canSwitchDatabaseFor('admin@example.com'), isFalse);
+    expect(
+      EnvConfig.canSwitchDatabaseForEnvironment(
+        AppEnvironment.local,
+        'admin@lema.club',
+      ),
+      isFalse,
+    );
+  });
 }

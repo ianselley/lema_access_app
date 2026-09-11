@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/auth_providers.dart' as auth;
 import '../providers/profile_providers.dart' as profile;
+import '../core/env_config.dart';
+import '../core/supabase.dart';
 import '../theme/app_theme.dart';
 import '../widgets/join_with_code_sheet.dart';
 import '../widgets/lema_components.dart';
@@ -25,6 +27,7 @@ class ProfileSessionScreen extends ConsumerWidget {
             _ProfileErrorView(error: error, onLogout: onLogout),
         data: (me) {
           final profile = me!;
+          final sessionEmail = ref.watch(auth.accessCurrentUserProvider)?.email;
 
           return SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
@@ -84,6 +87,10 @@ class ProfileSessionScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 const JoinWithCodePanel(),
+                if (EnvConfig.canSwitchDatabaseFor(sessionEmail)) ...[
+                  const SizedBox(height: 18),
+                  _DatabaseEnvironmentPanel(email: sessionEmail!),
+                ],
                 const SizedBox(height: 18),
                 OutlinedButton.icon(
                   onPressed: () async {
@@ -113,6 +120,75 @@ class ProfileSessionScreen extends ConsumerWidget {
     );
   }
 }
+
+class _DatabaseEnvironmentPanel extends ConsumerStatefulWidget {
+  const _DatabaseEnvironmentPanel({required this.email});
+
+  final String email;
+
+  @override
+  ConsumerState<_DatabaseEnvironmentPanel> createState() =>
+      _DatabaseEnvironmentPanelState();
+}
+
+class _DatabaseEnvironmentPanelState
+    extends ConsumerState<_DatabaseEnvironmentPanel> {
+  bool _isSwitching = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final environment = EnvConfig.fromEnvironment().environment;
+    final target = environment == AppEnvironment.staging
+        ? AppEnvironment.prod
+        : AppEnvironment.staging;
+
+    return LemaPanel(
+      color: AppColors.surfaceHighest,
+      borderColor: AppColors.warning.withValues(alpha: 0.35),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Base de datos: ${_environmentLabel(environment)}'),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _isSwitching ? null : () => _switchTo(target),
+            icon: _isSwitching
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.swap_horiz_rounded),
+            label: Text('Cambiar a ${_environmentLabel(target)}'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _switchTo(AppEnvironment target) async {
+    setState(() => _isSwitching = true);
+    try {
+      await switchAccessDatabase(email: widget.email, target: target);
+      ref.invalidate(auth.authSessionProvider);
+      ref.invalidate(auth.accessRpcClientProvider);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo cambiar la base de datos.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSwitching = false);
+      }
+    }
+  }
+}
+
+String _environmentLabel(AppEnvironment environment) =>
+    environment == AppEnvironment.staging ? 'staging' : 'producción';
 
 class _ProfileErrorView extends StatelessWidget {
   const _ProfileErrorView({required this.error, this.onLogout});

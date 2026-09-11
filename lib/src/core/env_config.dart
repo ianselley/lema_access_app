@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 enum AppEnvironment {
   local,
   staging,
@@ -27,6 +29,15 @@ class EnvConfig {
   static const String defaultEnvironmentName =
       'prod'; // TODO: ALWAYS CHECK BEFORE DEPLOYING.
 
+  static final AppEnvironment _buildEnvironment = AppEnvironment.fromName(
+    const String.fromEnvironment(
+      'APP_ENV',
+      defaultValue: defaultEnvironmentName,
+    ),
+  );
+  static final ValueNotifier<AppEnvironment> environmentNotifier =
+      ValueNotifier<AppEnvironment>(_buildEnvironment);
+
   static const EnvConfig local = EnvConfig(
     environment: AppEnvironment.local,
     supabaseUrl: 'http://127.0.0.1:54321',
@@ -47,10 +58,6 @@ class EnvConfig {
   );
 
   factory EnvConfig.fromEnvironment() {
-    const configuredEnvironmentName = String.fromEnvironment(
-      'APP_ENV',
-      defaultValue: defaultEnvironmentName,
-    );
     const supabaseUrlOverride = String.fromEnvironment(
       'SUPABASE_URL',
       defaultValue: '',
@@ -60,9 +67,7 @@ class EnvConfig {
       defaultValue: '',
     );
 
-    final baseConfig = switch (AppEnvironment.fromName(
-      configuredEnvironmentName,
-    )) {
+    final baseConfig = switch (environmentNotifier.value) {
       AppEnvironment.local => local,
       AppEnvironment.staging => staging,
       AppEnvironment.prod => prod,
@@ -81,6 +86,28 @@ class EnvConfig {
   final String supabaseAnonKey;
 
   String get environmentName => environment.name;
+
+  static bool get canSwitchDatabase =>
+      _buildEnvironment != AppEnvironment.local;
+
+  static bool canSwitchDatabaseFor(String? email) =>
+      canSwitchDatabaseForEnvironment(_buildEnvironment, email);
+
+  static bool canSwitchDatabaseForEnvironment(
+    AppEnvironment buildEnvironment,
+    String? email,
+  ) =>
+      buildEnvironment != AppEnvironment.local &&
+      (email?.trim().toLowerCase().endsWith('@lema.club') ?? false);
+
+  static void setDatabaseEnvironment(AppEnvironment value) {
+    if (!canSwitchDatabase || value == AppEnvironment.local) {
+      throw StateError(
+        'Database switching is unavailable in local development.',
+      );
+    }
+    environmentNotifier.value = value;
+  }
 
   String get accessEmailRedirectUrl => switch (environment) {
     AppEnvironment.local => 'https://127.0.0.1:3000/access',

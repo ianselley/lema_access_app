@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/activity_refresh_providers.dart';
 import 'providers/auth_providers.dart';
 import 'providers/bootstrap_providers.dart';
+import 'core/env_config.dart';
 import 'screens/gate_screen.dart';
 import 'services/deep_link_service.dart';
 import 'theme/app_theme.dart';
@@ -26,7 +27,32 @@ class LemaAccessApp extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        return KeyboardDismissRegion(child: child);
+        return ValueListenableBuilder<AppEnvironment>(
+          valueListenable: EnvConfig.environmentNotifier,
+          builder: (context, environment, _) {
+            final content = KeyboardDismissRegion(child: child);
+            if (environment != AppEnvironment.staging) {
+              return content;
+            }
+
+            return SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  const _StagingBanner(),
+                  const SizedBox(height: 4),
+                  Expanded(
+                    child: MediaQuery.removePadding(
+                      context: context,
+                      removeTop: true,
+                      child: content,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
       },
       home: _AccessLifecycleBoundary(
         child: deepLinks == null
@@ -36,6 +62,29 @@ class LemaAccessApp extends StatelessWidget {
                 builder: (context, child) =>
                     AccessGateScreen(deepLinks: deepLinks),
               ),
+      ),
+    );
+  }
+}
+
+class _StagingBanner extends StatelessWidget {
+  const _StagingBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 26,
+      width: double.infinity,
+      alignment: Alignment.center,
+      color: AppColors.warning,
+      child: const Text(
+        'ESTÁS EN STAGING',
+        style: TextStyle(
+          color: AppColors.black,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1,
+        ),
       ),
     );
   }
