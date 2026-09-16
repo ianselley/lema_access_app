@@ -1,3 +1,5 @@
+import 'add_on_models.dart';
+
 enum AccessScanSource { scanner, manualCode, manualSearch, manualDetail }
 
 enum AccessScanStage { preview, checkIn }
@@ -40,6 +42,10 @@ String? accessScanReasonLabel(String? reasonCode) {
       return 'Acceso registrado';
     case 'UNRESOLVED_SCAN_RESULT':
       return 'Resultado no resuelto';
+    case 'TICKET_VALIDITY_NOT_STARTED':
+      return 'Aún no está dentro del horario válido';
+    case 'TICKET_VALIDITY_EXPIRED':
+      return 'El horario válido ya ha terminado';
     case null:
     case '':
       return null;
@@ -155,6 +161,9 @@ class AccessTicketSnapshot {
     required this.buyerFullName,
     required this.buyerEmail,
     required this.buyerPhone,
+    this.addOns = const [],
+    this.zoneOffer,
+    this.validityWindow,
   });
 
   factory AccessTicketSnapshot.fromJson(Map<String, dynamic> json) {
@@ -189,6 +198,9 @@ class AccessTicketSnapshot {
       buyerPhone: buyerJson == null
           ? null
           : _readNullableString(buyerJson['phone']),
+      addOns: readAccessTicketAddOns(json['add_ons']),
+      zoneOffer: readAccessTicketZoneOffer(json['zone_offer']),
+      validityWindow: readAccessTicketValidityWindow(json['validity_window']),
     );
   }
 
@@ -211,6 +223,9 @@ class AccessTicketSnapshot {
   final String? buyerFullName;
   final String? buyerEmail;
   final String? buyerPhone;
+  final List<AccessTicketAddOn> addOns;
+  final AccessTicketZoneOffer? zoneOffer;
+  final AccessTicketValidityWindow? validityWindow;
 
   String get displayName => attendeeFullName ?? buyerFullName ?? 'Sin nombre';
 
@@ -426,11 +441,20 @@ class AccessScanOutcome {
 
   bool get isAccessGranted => resultCode == 'valid';
 
+  bool get requiresValidityDecision =>
+      stage == AccessScanStage.checkIn &&
+      resultCode == 'cancelled_or_invalid' &&
+      ticket?.status == 'issued' &&
+      (reasonCode == 'TICKET_VALIDITY_NOT_STARTED' ||
+          reasonCode == 'TICKET_VALIDITY_EXPIRED');
+
   String get headline => accessScanHeadlineForResultCode(resultCode);
 
   String get body => accessScanBodyForResultCode(resultCode);
 
   String get displayHeadline {
+    if (requiresValidityDecision) return 'Fuera del horario válido';
+
     switch (invalidContext?.category) {
       case 'different_brand':
         return 'Ticket de otra marca';
@@ -450,6 +474,10 @@ class AccessScanOutcome {
   }
 
   String get displayBody {
+    if (requiresValidityDecision) {
+      return 'Decide si quieres validar esta entrada fuera de su horario.';
+    }
+
     final ticketEventName = invalidContext?.ticketEvent?.displayName;
     final currentEventName = invalidContext?.currentEvent?.displayName;
 

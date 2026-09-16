@@ -123,5 +123,102 @@ void main() {
         'Equipo de producción',
       );
     });
+
+    test('parses remaining and consumed ticket add-ons', () {
+      final outcome = AccessScanOutcome.fromJson(
+        stage: AccessScanStage.checkIn,
+        source: AccessScanSource.scanner,
+        rawInput: 'EXTRAS',
+        json: <String, dynamic>{
+          'result_code': 'already_used',
+          'can_check_in': false,
+          'event_match': true,
+          'ticket': <String, dynamic>{
+            'id': 'ticket-4',
+            'event_id': 'event-a',
+            'ticket_type': <String, dynamic>{'name': 'General'},
+            'attendee': <String, dynamic>{},
+            'order': <String, dynamic>{'id': 'order-4', 'status': 'paid'},
+            'code': 'EXTRAS',
+            'status': 'checked_in',
+            'can_check_in': false,
+            'zone_offer': <String, dynamic>{
+              'zone_name': 'VIP Terraza',
+              'service_starts_at': '2026-09-15T20:00:00Z',
+              'service_ends_at': '2026-09-15T23:30:00Z',
+            },
+            'validity_window': <String, dynamic>{
+              'starts_at': '2026-09-15T19:00:00Z',
+              'ends_at': '2026-09-16T01:00:00Z',
+            },
+            'add_ons': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'assignment_id': 'assignment-1',
+                'name': 'Consumición',
+                'quantity': 3,
+                'refunded_quantity': 0,
+                'redeemed_quantity': 1,
+                'pending_refund_quantity': 0,
+                'remaining_quantity': 2,
+                'active_redemptions': <Map<String, dynamic>>[
+                  <String, dynamic>{
+                    'id': 'redemption-1',
+                    'quantity': 1,
+                    'created_at': '2026-09-15T20:00:00Z',
+                    'source': 'scanner',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      );
+
+      final addOn = outcome.ticket!.addOns.single;
+      expect(addOn.displayName, 'Consumición');
+      expect(addOn.redeemedQuantity, 1);
+      expect(addOn.remainingQuantity, 2);
+      expect(addOn.redemptions.single.quantity, 1);
+      expect(outcome.ticket!.zoneOffer?.name, 'VIP Terraza');
+      expect(outcome.ticket!.zoneOffer?.displayName, 'Reservado · VIP Terraza');
+      expect(
+        outcome.ticket!.zoneOffer?.serviceEndsAt,
+        DateTime.parse('2026-09-15T23:30:00Z'),
+      );
+      expect(
+        outcome.ticket!.validityWindow?.startsAt,
+        DateTime.parse('2026-09-15T19:00:00Z'),
+      );
+    });
+
+    test('requires an operator decision outside the scan validity window', () {
+      final outcome = AccessScanOutcome.fromJson(
+        stage: AccessScanStage.checkIn,
+        source: AccessScanSource.scanner,
+        rawInput: 'EARLY',
+        json: <String, dynamic>{
+          'result_code': 'cancelled_or_invalid',
+          'reason_code': 'TICKET_VALIDITY_NOT_STARTED',
+          'can_check_in': false,
+          'event_match': true,
+          'ticket': <String, dynamic>{
+            'id': 'ticket-5',
+            'event_id': 'event-a',
+            'status': 'issued',
+            'validity_window': <String, dynamic>{
+              'starts_at': '2026-09-15T20:00:00Z',
+              'ends_at': '2026-09-15T23:00:00Z',
+            },
+          },
+        },
+      );
+
+      expect(outcome.requiresValidityDecision, isTrue);
+      expect(outcome.displayHeadline, 'Fuera del horario válido');
+      expect(
+        outcome.displayReasonLabel,
+        'Aún no está dentro del horario válido',
+      );
+    });
   });
 }

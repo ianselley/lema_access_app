@@ -44,8 +44,32 @@ class AccessScanController extends Notifier<AccessScanState> {
     );
   }
 
+  Future<AccessScanOutcome?> forceConfirmTicket(String ticketId) {
+    return _runOperation(
+      rawInput: ticketId,
+      source: AccessScanSource.manualDetail,
+      label: 'Confirmando acceso excepcional',
+      operation: _performForcedTicketConfirmation,
+    );
+  }
+
   void reset() {
     state = const AccessScanIdle();
+  }
+
+  Future<AccessTicketSnapshot> redeemAddOns({
+    required String eventId,
+    required String ticketId,
+    required List<String> assignmentIds,
+  }) async {
+    final ticket = await AccessScanService(ref.read(accessRpcClientProvider))
+        .redeemAddOns(
+          eventId: eventId,
+          ticketId: ticketId,
+          assignmentIds: assignmentIds,
+        );
+    bumpAccessActivityRefreshTick(ref);
+    return ticket;
   }
 
   Future<AccessScanOutcome?> _runOperation({
@@ -189,6 +213,16 @@ class AccessScanController extends Notifier<AccessScanState> {
     return AccessScanService(
       ref.read(accessRpcClientProvider),
     ).checkInTicket(eventId: eventId, ticketId: rawInput, source: source);
+  }
+
+  Future<AccessScanOutcome> _performForcedTicketConfirmation({
+    required String eventId,
+    required String rawInput,
+    required AccessScanSource source,
+  }) {
+    return AccessScanService(
+      ref.read(accessRpcClientProvider),
+    ).forceCheckInTicket(eventId: eventId, ticketId: rawInput);
   }
 
   Future<String?> _resolveEventId() async {

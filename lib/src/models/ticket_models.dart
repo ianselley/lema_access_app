@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'add_on_models.dart';
+
 @immutable
 class AccessTicketSelection {
   const AccessTicketSelection({
@@ -317,6 +319,9 @@ class AccessTicketSnapshot {
     required this.checkedInAt,
     required this.updatedAt,
     this.buyer,
+    this.addOns = const [],
+    this.zoneOffer,
+    this.validityWindow,
   });
 
   final String id;
@@ -331,6 +336,9 @@ class AccessTicketSnapshot {
   final DateTime? issuedAt;
   final DateTime? checkedInAt;
   final DateTime? updatedAt;
+  final List<AccessTicketAddOn> addOns;
+  final AccessTicketZoneOffer? zoneOffer;
+  final AccessTicketValidityWindow? validityWindow;
 
   factory AccessTicketSnapshot.fromJson(Map<String, dynamic> json) {
     return AccessTicketSnapshot(
@@ -348,6 +356,9 @@ class AccessTicketSnapshot {
       issuedAt: _readNullableDateTime(json['issued_at']),
       checkedInAt: _readNullableDateTime(json['checked_in_at']),
       updatedAt: _readNullableDateTime(json['updated_at']),
+      addOns: readAccessTicketAddOns(json['add_ons']),
+      zoneOffer: readAccessTicketZoneOffer(json['zone_offer']),
+      validityWindow: readAccessTicketValidityWindow(json['validity_window']),
     );
   }
 }

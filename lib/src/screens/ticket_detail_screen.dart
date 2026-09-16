@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/rpc_exception.dart';
+import '../models/add_on_models.dart';
 import '../models/ticket_models.dart';
 import '../providers/ticket_providers.dart';
 import '../theme/app_theme.dart';
@@ -188,6 +189,16 @@ class _DetailContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+        if (detail.ticket.zoneOffer?.serviceStartsAt != null ||
+            detail.ticket.zoneOffer?.serviceEndsAt != null ||
+            detail.ticket.validityWindow != null) ...[
+          _TicketSchedulePanel(ticket: detail.ticket),
+          const SizedBox(height: 16),
+        ],
+        if (detail.ticket.addOns.isNotEmpty) ...[
+          _AddOnsPanel(addOns: detail.ticket.addOns),
+          const SizedBox(height: 16),
+        ],
         if (detail.validationHistory.isNotEmpty)
           LemaPanel(
             color: AppColors.surface,
@@ -233,6 +244,193 @@ class _DetailContent extends StatelessWidget {
       ],
     );
   }
+}
+
+class _TicketSchedulePanel extends StatelessWidget {
+  const _TicketSchedulePanel({required this.ticket});
+
+  final AccessTicketSnapshot ticket;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final zoneOffer = ticket.zoneOffer;
+    final validityWindow = ticket.validityWindow;
+
+    return LemaPanel(
+      color: AppColors.surface,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Horario de acceso', style: textTheme.titleLarge),
+          if (zoneOffer?.serviceStartsAt != null ||
+              zoneOffer?.serviceEndsAt != null) ...[
+            const SizedBox(height: 12),
+            _ScheduleRow(
+              label: zoneOffer!.displayName,
+              value: _formatInterval(
+                zoneOffer.serviceStartsAt,
+                zoneOffer.serviceEndsAt,
+              ),
+            ),
+          ],
+          if (validityWindow != null) ...[
+            const SizedBox(height: 12),
+            _ScheduleRow(
+              label: 'Horario válido de escaneo',
+              value: _formatInterval(
+                validityWindow.startsAt,
+                validityWindow.endsAt,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ScheduleRow extends StatelessWidget {
+  const _ScheduleRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.schedule_rounded, color: AppColors.primary, size: 20),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: textTheme.labelLarge),
+              const SizedBox(height: 3),
+              Text(
+                value,
+                style: textTheme.bodyLarge?.copyWith(
+                  color: AppColors.onSurfaceMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AddOnsPanel extends StatelessWidget {
+  const _AddOnsPanel({required this.addOns});
+
+  final List<AccessTicketAddOn> addOns;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final operations = <String, _AddOnOperation>{};
+    for (final addOn in addOns) {
+      for (final redemption in addOn.redemptions) {
+        final key =
+            redemption.createdAt?.toUtc().toIso8601String() ?? redemption.id;
+        operations
+            .putIfAbsent(
+              key,
+              () => _AddOnOperation(createdAt: redemption.createdAt),
+            )
+            .items
+            .add((addOn: addOn, redemption: redemption));
+      }
+    }
+    final sortedOperations = operations.values.toList()
+      ..sort((a, b) {
+        if (a.createdAt == null && b.createdAt == null) return 0;
+        if (a.createdAt == null) return 1;
+        if (b.createdAt == null) return -1;
+        return b.createdAt!.compareTo(a.createdAt!);
+      });
+
+    return LemaPanel(
+      color: AppColors.surface,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Extras', style: textTheme.titleLarge),
+          const SizedBox(height: 14),
+          for (final addOn in addOns) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(addOn.displayName, style: textTheme.bodyLarge),
+                ),
+                Text(
+                  '${addOn.redeemedQuantity}/${addOn.quantity} consumidos',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: addOn.remainingQuantity > 0
+                        ? AppColors.warning
+                        : AppColors.success,
+                  ),
+                ),
+              ],
+            ),
+            if (addOn.description != null) ...[
+              const SizedBox(height: 3),
+              Text(
+                addOn.description!,
+                style: textTheme.bodySmall?.copyWith(
+                  color: AppColors.onSurfaceMuted,
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+          ],
+          if (sortedOperations.isNotEmpty) ...[
+            const Divider(),
+            const SizedBox(height: 10),
+            Text('Validaciones de extras', style: textTheme.titleMedium),
+            const SizedBox(height: 10),
+            for (var i = 0; i < sortedOperations.length; i++) ...[
+              LemaStatusStripCard(
+                accent: AppColors.success,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Trámite · ${_formatDateTime(sortedOperations[i].createdAt)}',
+                      style: textTheme.labelMedium?.copyWith(
+                        color: AppColors.success,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    for (final item in sortedOperations[i].items)
+                      Text(
+                        '${item.redemption.quantity} × ${item.addOn.displayName}',
+                        style: textTheme.bodyMedium,
+                      ),
+                  ],
+                ),
+              ),
+              if (i != sortedOperations.length - 1) const SizedBox(height: 10),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AddOnOperation {
+  _AddOnOperation({required this.createdAt});
+
+  final DateTime? createdAt;
+  final List<({AccessTicketAddOn addOn, AccessAddOnRedemption redemption})>
+  items = [];
 }
 
 class _EmptySelectionPanel extends StatelessWidget {
@@ -490,4 +688,12 @@ String _formatDateTime(DateTime? dateTime) {
   final hour = local.hour.toString().padLeft(2, '0');
   final minute = local.minute.toString().padLeft(2, '0');
   return '$day/$month $hour:$minute';
+}
+
+String _formatInterval(DateTime? startsAt, DateTime? endsAt) {
+  if (startsAt != null && endsAt != null) {
+    return '${_formatDateTime(startsAt)} – ${_formatDateTime(endsAt)}';
+  }
+  if (startsAt != null) return 'Desde ${_formatDateTime(startsAt)}';
+  return 'Hasta ${_formatDateTime(endsAt)}';
 }
