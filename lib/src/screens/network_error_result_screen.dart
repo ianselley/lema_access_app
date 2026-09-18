@@ -34,7 +34,7 @@ class NetworkErrorResultScreen extends ConsumerWidget {
       if (failure?.code != null)
         LemaResultFact(
           label: 'Error',
-          value: failure!.code,
+          value: accessScanReasonLabel(failure!.code) ?? 'Error de acceso',
           icon: Icons.error_outline_rounded,
         ),
       if (outcome?.normalizedInput != null)
@@ -55,16 +55,16 @@ class NetworkErrorResultScreen extends ConsumerWidget {
             accent: AppColors.error,
             icon: Icons.cloud_off_rounded,
             subject: outcome?.headline ?? 'No hay conexión con el servidor',
-            supporting: failure?.code,
+            supporting: accessScanReasonLabel(failure?.code),
           ),
           const SizedBox(height: 16),
           LemaResultFocusCard(
             accent: AppColors.error,
             icon: Icons.wifi_find_rounded,
-            title: 'Sin comunicación con el backend',
-            meta: failure?.code,
+            title: 'Sin comunicación con el servidor',
+            meta: accessScanReasonLabel(failure?.code),
             description:
-                failure?.message ??
+                failure?.displayMessage ??
                 outcome?.body ??
                 'Reintenta o busca el ticket manualmente.',
           ),

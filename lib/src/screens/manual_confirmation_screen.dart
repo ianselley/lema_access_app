@@ -75,7 +75,7 @@ class ManualConfirmationScreen extends ConsumerWidget {
                     if (_ticketTypeDescription(ticket) != null) ...[
                       const SizedBox(height: 8),
                       Text(
-                        '${_ticketTypeLabel(ticket!)} · ${_ticketTypeDescription(ticket)!}',
+                        '${ticket!.ticketTypeLabel} · ${_ticketTypeDescription(ticket)!}',
                         style: textTheme.bodyMedium?.copyWith(
                           color: AppColors.onSurfaceMuted,
                         ),
@@ -120,11 +120,6 @@ String _attendeeLabel(AccessTicketSnapshot ticket) =>
     ticket.attendee.fullName?.trim().isNotEmpty == true
     ? ticket.attendee.fullName!.trim()
     : 'Sin asistente';
-
-String _ticketTypeLabel(AccessTicketSnapshot ticket) =>
-    ticket.ticketType.name?.trim().isNotEmpty == true
-    ? ticket.ticketType.name!.trim()
-    : 'Sin tipo';
 
 String? _ticketTypeDescription(AccessTicketSnapshot? ticket) {
   final description = ticket?.ticketType.description?.trim();

@@ -324,6 +324,9 @@ class AccessTicketSnapshot {
     this.validityWindow,
   });
 
+  String get ticketTypeLabel =>
+      accessTicketTypeLabel(ticketType.name, zoneOffer);
+
   final String id;
   final String eventId;
   final String code;

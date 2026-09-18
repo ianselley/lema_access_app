@@ -104,6 +104,7 @@ class EventHomeScreen extends ConsumerWidget {
                                 child: AccessHistoryListRow(
                                   titleLabel: history[index].titleLabel,
                                   subtitleLabel: history[index].subtitleLabel,
+                                  detailLabels: history[index].detailLabels,
                                   resultLabel: history[index].resultLabel,
                                   resultColor: history[index].resultColor,
                                   relativeTimeLabel:
@@ -201,6 +202,9 @@ tm.AccessTicketSnapshot _mapEventToDetailTicket(AccessTicketSnapshot ticket) {
     issuedAt: ticket.issuedAt,
     checkedInAt: ticket.checkedInAt,
     updatedAt: ticket.updatedAt,
+    zoneOffer: ticket.zoneOffer,
+    addOns: ticket.addOns,
+    validityWindow: ticket.validityWindow,
   );
 }
 
@@ -215,7 +219,7 @@ String _sourceLabel(String? source) {
     case 'manual_detail':
       return 'Detalle manual';
     default:
-      return source ?? 'Otra fuente';
+      return 'Otra fuente';
   }
 }
 
@@ -401,7 +405,8 @@ class _EventHomeErrorState extends StatelessWidget {
         ? error as AccessFailure
         : null;
     final message =
-        accessFailure?.message ?? 'No se pudo cargar el home del evento.';
+        accessFailure?.displayMessage ??
+        'No se pudo cargar el home del evento.';
 
     return Center(
       child: LemaPanel(

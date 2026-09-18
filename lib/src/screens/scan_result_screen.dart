@@ -6,6 +6,7 @@ import '../providers/scan_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
+import 'event_ui.dart';
 
 class ScanResultScreen extends ConsumerWidget {
   const ScanResultScreen({
@@ -28,9 +29,13 @@ class ScanResultScreen extends ConsumerWidget {
       final variant = accessScanUiVariantForResultCode(outcome.resultCode);
       final accent = switch (variant) {
         AccessScanUiVariant.valid => AppColors.success,
-        AccessScanUiVariant.used => AppColors.warning,
+        AccessScanUiVariant.used =>
+          outcome.ticket?.addOns.any((extra) => extra.remainingQuantity > 0) ==
+                  true
+              ? AppColors.warning
+              : AppColors.error,
         AccessScanUiVariant.invalid => AppColors.error,
-        AccessScanUiVariant.notFound => const Color(0xFF9CA3AF),
+        AccessScanUiVariant.notFound => AppColors.error,
         AccessScanUiVariant.networkError => AppColors.error,
       };
 
@@ -75,7 +80,10 @@ class ScanResultScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  LemaStatusPill(label: outcome.resultCode, color: accent),
+                  LemaStatusPill(
+                    label: historyResultLabel(outcome.resultCode),
+                    color: accent,
+                  ),
                 ],
               ),
               const SizedBox(height: 22),
@@ -177,12 +185,12 @@ class ScanResultScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  failure.code,
+                  accessScanReasonLabel(failure.code) ?? 'Error de acceso',
                   style: textTheme.labelSmall?.copyWith(color: AppColors.error),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  failure.message,
+                  failure.displayMessage,
                   style: textTheme.bodyMedium?.copyWith(
                     color: AppColors.onSurfaceMuted,
                   ),

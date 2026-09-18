@@ -1,3 +1,6 @@
+import '../core/access_labels.dart';
+export '../core/access_labels.dart' show accessScanReasonLabel;
+
 import 'add_on_models.dart';
 
 enum AccessScanSource { scanner, manualCode, manualSearch, manualDetail }
@@ -22,35 +25,7 @@ String accessTicketStatusLabel(String? status) {
     case '':
       return 'Sin estado';
     default:
-      return status;
-  }
-}
-
-String? accessScanReasonLabel(String? reasonCode) {
-  switch (reasonCode) {
-    case 'EVENT_ACCESS_DENIED':
-      return 'Sin acceso al evento';
-    case 'TICKET_EVENT_MISMATCH':
-      return 'Evento incorrecto';
-    case 'TICKET_NOT_FOUND':
-      return 'Ticket no encontrado';
-    case 'TICKET_STATUS_INVALID':
-      return 'Estado no válido';
-    case 'ALREADY_CHECKED_IN':
-      return 'Ya registrado';
-    case 'CHECKED_IN':
-      return 'Acceso registrado';
-    case 'UNRESOLVED_SCAN_RESULT':
-      return 'Resultado no resuelto';
-    case 'TICKET_VALIDITY_NOT_STARTED':
-      return 'Aún no está dentro del horario válido';
-    case 'TICKET_VALIDITY_EXPIRED':
-      return 'El horario válido ya ha terminado';
-    case null:
-    case '':
-      return null;
-    default:
-      return reasonCode;
+      return 'Estado desconocido';
   }
 }
 
@@ -76,7 +51,7 @@ String? accessScanInvalidCategoryLabel(String? category) {
     case '':
       return null;
     default:
-      return category;
+      return 'Entrada no válida';
   }
 }
 
@@ -230,7 +205,7 @@ class AccessTicketSnapshot {
   String get displayName => attendeeFullName ?? buyerFullName ?? 'Sin nombre';
 
   String get ticketTypeLabel =>
-      ticketTypeName.isEmpty ? 'Sin tipo' : ticketTypeName;
+      accessTicketTypeLabel(ticketTypeName, zoneOffer);
 
   String? get ticketTypeDescriptionLabel {
     final value = ticketTypeDescription?.trim();
@@ -528,6 +503,14 @@ class AccessScanFailureInfo {
     required this.message,
     this.details,
   });
+
+  String get displayMessage {
+    if (kind == AccessScanFailureKind.network) {
+      return 'No se ha podido conectar. Comprueba la conexión e inténtalo de nuevo';
+    }
+    if (kind == AccessScanFailureKind.auth) return 'Inicia sesión de nuevo';
+    return accessScanReasonLabel(code) ?? 'No se pudo completar la operación';
+  }
 
   final AccessScanFailureKind kind;
   final String code;

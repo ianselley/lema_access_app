@@ -1,3 +1,5 @@
+import 'access_labels.dart';
+
 enum AccessFailureKind { network, auth, backend, contract }
 
 class AccessFailure implements Exception {
@@ -15,6 +17,14 @@ class AccessFailure implements Exception {
 
   bool get isAuthRelated =>
       kind == AccessFailureKind.auth || code == 'AUTH_REQUIRED';
+
+  String get displayMessage {
+    if (kind == AccessFailureKind.network) {
+      return 'No se ha podido conectar. Inténtalo de nuevo';
+    }
+    if (kind == AccessFailureKind.auth) return 'Inicia sesión de nuevo';
+    return accessScanReasonLabel(code) ?? 'No se pudo completar la operación';
+  }
 
   @override
   String toString() {

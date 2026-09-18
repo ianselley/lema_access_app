@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/rpc_exception.dart';
+import '../core/failure.dart';
 import '../models/ticket_models.dart';
 import '../providers/event_providers.dart';
 import '../providers/ticket_providers.dart';
@@ -202,7 +203,11 @@ class _ErrorPanel extends StatelessWidget {
     final AccessRpcException? rpcError = error is AccessRpcException
         ? error as AccessRpcException
         : null;
-    final message = rpcError?.message ?? error.toString();
+    final message =
+        rpcError?.displayMessage ??
+        (error is AccessFailure
+            ? (error as AccessFailure).displayMessage
+            : 'No se pudo cargar la búsqueda.');
 
     return LemaPanel(
       color: AppColors.error.withValues(alpha: 0.08),
@@ -281,7 +286,7 @@ class _ResultCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${item.ticket.ticketType.name ?? 'Tipo de ticket'} · ${item.ticket.code}',
+                  '${item.ticket.ticketTypeLabel} · ${item.ticket.code}',
                   style: textTheme.bodyMedium?.copyWith(
                     color: AppColors.onSurfaceMuted,
                   ),

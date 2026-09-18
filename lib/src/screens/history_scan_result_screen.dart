@@ -30,7 +30,7 @@ class HistoryScanResultSnapshot {
       sourceLabel: _sourceLabel(item.source),
       referenceLabel: _eventHistoryReferenceLabel(item),
       subject: _cleanText(ticket?.attendee.fullName),
-      ticketTypeLabel: _cleanText(ticket?.ticketType.name),
+      ticketTypeLabel: _cleanText(ticket?.ticketTypeLabel),
       ticketTypeDescription: _cleanText(ticket?.ticketType.description),
       attemptedAt: item.createdAt,
     );
@@ -46,7 +46,7 @@ class HistoryScanResultSnapshot {
       sourceLabel: _sourceLabel(item.source),
       referenceLabel: _historyEntryReferenceLabel(item),
       subject: _cleanText(ticket?.attendee.fullName),
-      ticketTypeLabel: _cleanText(ticket?.ticketType.name),
+      ticketTypeLabel: _cleanText(ticket?.ticketTypeLabel),
       ticketTypeDescription: _cleanText(ticket?.ticketType.description),
       attemptedAt: item.createdAt,
     );
@@ -85,7 +85,9 @@ class HistoryScanResultScreen extends StatelessWidget {
       if (snapshot.reasonCode != null)
         LemaResultFact(
           label: 'Motivo',
-          value: snapshot.reasonCode!,
+          value:
+              accessScanReasonLabel(snapshot.reasonCode) ??
+              'Sin motivo disponible',
           icon: Icons.info_outline_rounded,
         ),
       if (snapshot.ticketTypeLabel != null)
@@ -204,7 +206,7 @@ String _sourceLabel(String? source) {
     case 'manual_detail':
       return 'Detalle manual';
     default:
-      return _cleanText(source) ?? 'Otro origen';
+      return 'Otro origen';
   }
 }
 

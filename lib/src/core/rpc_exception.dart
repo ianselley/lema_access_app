@@ -1,3 +1,5 @@
+import 'access_labels.dart';
+
 class AccessRpcException implements Exception {
   const AccessRpcException({
     required this.code,
@@ -10,6 +12,9 @@ class AccessRpcException implements Exception {
   final String message;
   final Object? details;
   final Object? cause;
+
+  String get displayMessage =>
+      accessScanReasonLabel(code) ?? 'No se pudo completar la operación';
 
   @override
   String toString() {

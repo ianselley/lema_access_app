@@ -1,7 +1,109 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lema_access_app/src/models/add_on_models.dart';
+import 'package:lema_access_app/src/models/ticket_models.dart' as detail;
+import 'package:lema_access_app/src/models/history_models.dart' as history;
+import 'package:lema_access_app/src/models/event_models.dart' as event;
+import 'package:lema_access_app/src/core/failure.dart';
+import 'package:lema_access_app/src/core/rpc_exception.dart';
 import 'package:lema_access_app/src/models/scan_models.dart';
 
 void main() {
+  test(
+    'all ticket snapshots retain the current VIP reservation total and title',
+    () {
+      final json = <String, dynamic>{
+        'id': 'ticket',
+        'event_id': 'event',
+        'code': 'VIP',
+        'status': 'issued',
+        'ticket_type': <String, dynamic>{'id': 'type', 'name': 'Mesa Terraza'},
+        'attendee': <String, dynamic>{'id': 'attendee'},
+        'order': <String, dynamic>{'id': 'order', 'status': 'paid'},
+        'zone_offer': <String, dynamic>{
+          'zone_name': 'Terraza',
+          'people_count_initial': 4,
+          'people_count_current': 7,
+        },
+      };
+      final scanTicket = AccessTicketSnapshot.fromJson(json);
+      final detailTicket = detail.AccessTicketSnapshot.fromJson(json);
+      final historyTicket = history.AccessHistoryTicketSnapshot.fromJson(json);
+      final eventTicket = event.AccessTicketSnapshot.fromJson(json);
+      expect([
+        scanTicket.ticketTypeLabel,
+        detailTicket.ticketTypeLabel,
+        historyTicket.ticketTypeLabel,
+        eventTicket.ticketTypeLabel,
+      ], everyElement('Reservado · Mesa Terraza'));
+      expect([
+        scanTicket.zoneOffer!.guestCountLabel,
+        detailTicket.zoneOffer!.guestCountLabel,
+        historyTicket.zoneOffer!.guestCountLabel,
+        eventTicket.zoneOffer!.guestCountLabel,
+      ], everyElement('7 personas'));
+      expect(
+        accessTicketTypeLabel('Reservado · Mesa Terraza', scanTicket.zoneOffer),
+        'Reservado · Mesa Terraza',
+      );
+      expect(accessTicketTypeLabel('General', null), 'General');
+      expect(
+        AccessTicketZoneOffer.fromJson({
+          'people_count_initial': 1,
+        }).guestCountLabel,
+        '1 persona',
+      );
+      expect(AccessTicketZoneOffer.fromJson({}).guestCountLabel, isNull);
+    },
+  );
+
+  test(
+    'codes and unknown backend errors always get Spanish display labels',
+    () {
+      expect(
+        accessScanReasonLabel('CHECKED_IN_OUTSIDE_VALIDITY'),
+        'Acceso registrado fuera del horario válido',
+      );
+      expect(
+        accessScanReasonLabel('TICKET_VALIDITY_EXPIRED'),
+        'El horario válido ya ha terminado',
+      );
+      expect(accessScanReasonLabel('CHECK_IN_REVERSED'), 'Acceso desmarcado');
+      expect(
+        accessScanReasonLabel('NEW_BACKEND_CODE'),
+        'No se pudo completar la operación',
+      );
+      expect(accessTicketStatusLabel('NEW_STATUS'), 'Estado desconocido');
+      expect(
+        accessScanInvalidCategoryLabel('NEW_CATEGORY'),
+        'Entrada no válida',
+      );
+      expect(accessScanReasonLabel(null), isNull);
+      expect(
+        const AccessRpcException(
+          code: 'NEW_ERROR',
+          message: 'SQL detail',
+        ).displayMessage,
+        'No se pudo completar la operación',
+      );
+      expect(
+        const AccessFailure(
+          kind: AccessFailureKind.backend,
+          code: 'FORBIDDEN',
+          message: 'User denied',
+        ).displayMessage,
+        'No tienes permiso para esta operación',
+      );
+      expect(
+        const AccessScanFailureInfo(
+          kind: AccessScanFailureKind.network,
+          code: 'NETWORK',
+          message: 'SocketException',
+        ).displayMessage,
+        contains('Comprueba la conexión'),
+      );
+    },
+  );
+
   group('AccessScanOutcome', () {
     test('parses wrong-event invalid context for cross-brand tickets', () {
       final outcome = AccessScanOutcome.fromJson(

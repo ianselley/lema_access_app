@@ -65,6 +65,31 @@ class AccessTicketService {
     return _readEnvelope(response, AccessTicketCheckInOutcome.fromJson);
   }
 
+  Future<AccessTicketSnapshot> editAddOns({
+    required String eventId,
+    required String ticketId,
+    required List<String> undoRedemptionIds,
+    required List<Map<String, dynamic>> redemptions,
+    required Map<String, int> expectedQuantities,
+  }) async {
+    final response = await _client.call(
+      'access_edit_ticket_add_ons',
+      params: {
+        'p_event_id': eventId,
+        'p_ticket_id': ticketId,
+        'p_undo_redemption_ids': undoRedemptionIds,
+        'p_redemptions': redemptions,
+        'p_expected_quantities': expectedQuantities,
+      },
+    );
+    return _readEnvelope(
+      response,
+      (data) => AccessTicketSnapshot.fromJson(
+        Map<String, dynamic>.from(data['ticket'] as Map),
+      ),
+    );
+  }
+
   T _readEnvelope<T>(
     Map<String, dynamic> response,
     T Function(Map<String, dynamic> json) parseData,

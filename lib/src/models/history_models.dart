@@ -1,3 +1,5 @@
+import 'add_on_models.dart';
+
 class AccessHistoryPage {
   const AccessHistoryPage({
     required this.items,
@@ -177,7 +179,16 @@ class AccessHistoryTicketSnapshot {
     required this.issuedAt,
     required this.checkedInAt,
     required this.updatedAt,
+    this.zoneOffer,
+    this.addOns = const [],
+    this.validityWindow,
   });
+
+  final AccessTicketZoneOffer? zoneOffer;
+  final List<AccessTicketAddOn> addOns;
+  final AccessTicketValidityWindow? validityWindow;
+  String get ticketTypeLabel =>
+      accessTicketTypeLabel(ticketType.name, zoneOffer);
 
   final String id;
   final String eventId;
@@ -194,6 +205,9 @@ class AccessHistoryTicketSnapshot {
 
   factory AccessHistoryTicketSnapshot.fromJson(Map<String, dynamic> json) {
     return AccessHistoryTicketSnapshot(
+      zoneOffer: readAccessTicketZoneOffer(json['zone_offer']),
+      addOns: readAccessTicketAddOns(json['add_ons']),
+      validityWindow: readAccessTicketValidityWindow(json['validity_window']),
       id: _readString(json['id']),
       eventId: _readString(json['event_id']),
       code: _readString(json['code']),

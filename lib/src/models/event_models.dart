@@ -1,3 +1,5 @@
+import 'add_on_models.dart';
+
 class AccessProfile {
   const AccessProfile({
     required this.id,
@@ -501,6 +503,9 @@ class AccessTicketSnapshot {
     required this.issuedAt,
     required this.checkedInAt,
     required this.updatedAt,
+    this.zoneOffer,
+    this.addOns = const [],
+    this.validityWindow,
     required this.canCheckIn,
     required this.ticketType,
     required this.attendee,
@@ -510,6 +515,9 @@ class AccessTicketSnapshot {
 
   factory AccessTicketSnapshot.fromJson(Map<String, dynamic> json) {
     return AccessTicketSnapshot(
+      zoneOffer: readAccessTicketZoneOffer(json['zone_offer']),
+      addOns: readAccessTicketAddOns(json['add_ons']),
+      validityWindow: readAccessTicketValidityWindow(json['validity_window']),
       id: readString(json['id']),
       eventId: readString(json['event_id']),
       ticketOrderId: readNullableString(json['ticket_order_id']),
@@ -531,6 +539,12 @@ class AccessTicketSnapshot {
       order: AccessOrder.fromJson(readMap(json['order'])),
     );
   }
+
+  final AccessTicketZoneOffer? zoneOffer;
+  final List<AccessTicketAddOn> addOns;
+  final AccessTicketValidityWindow? validityWindow;
+  String get ticketTypeLabel =>
+      accessTicketTypeLabel(ticketType.name, zoneOffer);
 
   final String id;
   final String eventId;

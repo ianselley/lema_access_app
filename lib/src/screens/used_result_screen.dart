@@ -22,6 +22,10 @@ class UsedResultScreen extends ConsumerWidget {
       _ => null,
     };
     final ticket = outcome?.ticket;
+    final accent =
+        ticket?.addOns.any((extra) => extra.remainingQuantity > 0) == true
+        ? AppColors.warning
+        : AppColors.error;
     final facts = <LemaResultFact>[
       if (ticket != null)
         LemaResultFact(
@@ -51,12 +55,12 @@ class UsedResultScreen extends ConsumerWidget {
 
     return LemaScaffold(
       body: LemaResultScreenLayout(
-        accent: AppColors.warning,
+        accent: accent,
         content: [
           LemaResultHero(
             kicker: 'Acceso previamente validado',
             status: 'Ya utilizado',
-            accent: AppColors.warning,
+            accent: accent,
             icon: Icons.history_toggle_off_rounded,
             subject: ticket?.displayName ?? 'Revisión requerida',
             supporting: lemaJoinText([
@@ -68,7 +72,7 @@ class UsedResultScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           LemaResultFocusCard(
-            accent: AppColors.warning,
+            accent: accent,
             icon: Icons.warning_amber_rounded,
             title: 'Revisión manual recomendada',
             meta: lemaJoinText([
@@ -81,7 +85,7 @@ class UsedResultScreen extends ConsumerWidget {
           ),
           if (facts.isNotEmpty) ...[
             const SizedBox(height: 16),
-            LemaResultFacts(facts: facts, accent: AppColors.warning),
+            LemaResultFacts(facts: facts, accent: accent),
           ],
         ],
         actions: [

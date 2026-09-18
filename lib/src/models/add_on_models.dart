@@ -45,11 +45,17 @@ class AccessTicketZoneOffer {
     required this.name,
     required this.serviceStartsAt,
     required this.serviceEndsAt,
+    this.guestCount,
   });
 
   factory AccessTicketZoneOffer.fromJson(Map<String, dynamic> json) {
     return AccessTicketZoneOffer(
       name: _readNullableString(json['zone_name']),
+      guestCount: int.tryParse(
+        (json['people_count_current'] ?? json['people_count_initial'])
+                ?.toString() ??
+            '',
+      ),
       serviceStartsAt: DateTime.tryParse(
         _readString(json['service_starts_at']),
       ),
@@ -60,6 +66,11 @@ class AccessTicketZoneOffer {
   final String? name;
   final DateTime? serviceStartsAt;
   final DateTime? serviceEndsAt;
+  final int? guestCount;
+
+  String? get guestCountLabel => guestCount == null
+      ? null
+      : '$guestCount ${guestCount == 1 ? "persona" : "personas"}';
 
   String get displayName => name == null ? 'Reservado' : 'Reservado · $name';
 }
@@ -139,3 +150,21 @@ List<dynamic> _readList(Object? value) =>
 
 Map<String, dynamic> _readMap(Object? value) =>
     value is Map ? Map<String, dynamic>.from(value) : const <String, dynamic>{};
+
+String accessTicketTypeLabel(String? name, AccessTicketZoneOffer? zoneOffer) {
+  final label = name?.trim();
+  if (zoneOffer == null) {
+    return label == null || label.isEmpty ? 'Sin tipo' : label;
+  }
+  final reservationName = label == null || label.isEmpty
+      ? zoneOffer.name
+      : label;
+  if (reservationName == null || reservationName.isEmpty) return 'Reservado';
+  if (RegExp(
+    r'^reservado(?:\s|[·:–—-]|$)',
+    caseSensitive: false,
+  ).hasMatch(reservationName)) {
+    return reservationName;
+  }
+  return 'Reservado · $reservationName';
+}

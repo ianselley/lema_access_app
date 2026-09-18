@@ -43,19 +43,19 @@ class NotFoundResultScreen extends ConsumerWidget {
 
     return LemaScaffold(
       body: LemaResultScreenLayout(
-        accent: AppColors.primary,
+        accent: AppColors.error,
         content: [
           LemaResultHero(
             kicker: 'Resultado del escaneo',
             status: 'No encontrado',
-            accent: AppColors.primary,
+            accent: AppColors.error,
             icon: Icons.search_off_rounded,
             subject: outcome?.headline ?? 'No encontramos ese ticket',
             supporting: outcome?.normalizedInput,
           ),
           const SizedBox(height: 16),
           LemaResultFocusCard(
-            accent: AppColors.primary,
+            accent: AppColors.error,
             icon: Icons.manage_search_rounded,
             title: 'Buscar ticket',
             meta: outcome?.normalizedInput ?? 'Sin referencia disponible',
@@ -64,7 +64,7 @@ class NotFoundResultScreen extends ConsumerWidget {
           ),
           if (facts.isNotEmpty) ...[
             const SizedBox(height: 16),
-            LemaResultFacts(facts: facts, accent: AppColors.primary),
+            LemaResultFacts(facts: facts, accent: AppColors.error),
           ],
         ],
         actions: [

@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/rpc_exception.dart';
+import '../core/access_labels.dart';
+import '../core/failure.dart';
+import '../providers/activity_refresh_providers.dart';
+import '../widgets/ticket_extras_editor.dart';
 import '../models/add_on_models.dart';
 import '../models/ticket_models.dart';
 import '../providers/ticket_providers.dart';
@@ -55,18 +59,71 @@ class TicketDetailScreen extends ConsumerWidget {
                       await ref
                           .read(accessTicketCheckInControllerProvider.notifier)
                           .confirmSelectedTicket();
-                      if (ref
-                              .read(accessTicketCheckInControllerProvider)
-                              .status ==
-                          AccessActionStatus.success) {
+                      if (context.mounted &&
+                          ref
+                                  .read(accessTicketCheckInControllerProvider)
+                                  .status ==
+                              AccessActionStatus.success) {
                         onConfirmManualAccess?.call();
                       }
                     },
                     onUndo: () async {
-                      await ref
-                          .read(accessTicketCheckInControllerProvider.notifier)
-                          .undoSelectedTicketCheckIn();
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('¿Desmarcar acceso?'),
+                          content: const Text(
+                            'Podrás volver a marcarlo más tarde.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Cancelar'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('Desmarcar'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (context.mounted && confirmed == true) {
+                        await ref
+                            .read(
+                              accessTicketCheckInControllerProvider.notifier,
+                            )
+                            .undoSelectedTicketCheckIn();
+                      }
                     },
+                    onEditAddOns: actionState.isLoading
+                        ? null
+                        : () async {
+                            final changed = await showModalBottomSheet<bool>(
+                              context: context,
+                              isScrollControlled: true,
+                              builder: (context) => TicketExtrasEditor(
+                                addOns: detail.ticket.addOns,
+                                onSave: (undoIds, redemptions, expected) async {
+                                  await ref
+                                      .read(accessTicketServiceProvider)
+                                      .editAddOns(
+                                        eventId: detail.ticket.eventId,
+                                        ticketId: detail.ticket.id,
+                                        undoRedemptionIds: undoIds,
+                                        redemptions: redemptions,
+                                        expectedQuantities: expected,
+                                      );
+                                },
+                              ),
+                            );
+                            if (context.mounted && changed == true) {
+                              ref
+                                  .read(
+                                    accessActivityRefreshTickProvider.notifier,
+                                  )
+                                  .state++;
+                            }
+                          },
                   ),
                 ),
               ],
@@ -85,6 +142,7 @@ class _DetailContent extends StatelessWidget {
     required this.actionState,
     required this.onConfirm,
     required this.onUndo,
+    required this.onEditAddOns,
   });
 
   final AccessTicketDetail detail;
@@ -92,6 +150,7 @@ class _DetailContent extends StatelessWidget {
   final AccessTicketCheckInState actionState;
   final Future<void> Function() onConfirm;
   final Future<void> Function() onUndo;
+  final Future<void> Function()? onEditAddOns;
 
   @override
   Widget build(BuildContext context) {
@@ -119,10 +178,7 @@ class _DetailContent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _fallbackText(
-                            detail.ticketType.name,
-                            placeholder: 'Tipo de ticket',
-                          ),
+                          detail.ticket.ticketTypeLabel,
                           style: textTheme.headlineLarge?.copyWith(
                             color: AppColors.onSurface,
                           ),
@@ -156,6 +212,11 @@ class _DetailContent extends StatelessWidget {
                   LemaStatusPill(label: status.label, color: status.accent),
                 ],
               ),
+              if (detail.ticket.zoneOffer?.guestCountLabel
+                  case final String count) ...[
+                const SizedBox(height: 12),
+                Text(count, style: textTheme.titleMedium),
+              ],
               const SizedBox(height: 16),
               Text(
                 'Código ${_fallbackText(detail.ticket.code)}',
@@ -181,7 +242,7 @@ class _DetailContent extends StatelessWidget {
                     color: AppColors.surfaceHigh,
                     textColor: detail.ticket.canCheckIn
                         ? AppColors.secondary
-                        : AppColors.warning,
+                        : AppColors.error,
                   ),
                 ],
               ),
@@ -196,7 +257,7 @@ class _DetailContent extends StatelessWidget {
           const SizedBox(height: 16),
         ],
         if (detail.ticket.addOns.isNotEmpty) ...[
-          _AddOnsPanel(addOns: detail.ticket.addOns),
+          _AddOnsPanel(addOns: detail.ticket.addOns, onEdit: onEditAddOns),
           const SizedBox(height: 16),
         ],
         if (detail.validationHistory.isNotEmpty)
@@ -223,7 +284,7 @@ class _DetailContent extends StatelessWidget {
             icon: const Icon(Icons.undo_outlined),
             label: const Text('Desmarcar acceso'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.warning,
+              foregroundColor: AppColors.error,
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
           )
@@ -263,14 +324,14 @@ class _TicketSchedulePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Horario de acceso', style: textTheme.titleLarge),
+          Text('Horarios', style: textTheme.titleLarge),
           if (zoneOffer?.serviceStartsAt != null ||
               zoneOffer?.serviceEndsAt != null) ...[
             const SizedBox(height: 12),
             _ScheduleRow(
-              label: zoneOffer!.displayName,
+              label: 'Horario de mesa',
               value: _formatInterval(
-                zoneOffer.serviceStartsAt,
+                zoneOffer!.serviceStartsAt,
                 zoneOffer.serviceEndsAt,
               ),
             ),
@@ -278,7 +339,7 @@ class _TicketSchedulePanel extends StatelessWidget {
           if (validityWindow != null) ...[
             const SizedBox(height: 12),
             _ScheduleRow(
-              label: 'Horario válido de escaneo',
+              label: 'Horario de acceso',
               value: _formatInterval(
                 validityWindow.startsAt,
                 validityWindow.endsAt,
@@ -326,9 +387,10 @@ class _ScheduleRow extends StatelessWidget {
 }
 
 class _AddOnsPanel extends StatelessWidget {
-  const _AddOnsPanel({required this.addOns});
+  const _AddOnsPanel({required this.addOns, required this.onEdit});
 
   final List<AccessTicketAddOn> addOns;
+  final Future<void> Function()? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -361,7 +423,16 @@ class _AddOnsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Extras', style: textTheme.titleLarge),
+          Row(
+            children: [
+              Expanded(child: Text('Extras', style: textTheme.titleLarge)),
+              IconButton(
+                tooltip: 'Editar extras',
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined),
+              ),
+            ],
+          ),
           const SizedBox(height: 14),
           for (final addOn in addOns) ...[
             Row(
@@ -487,8 +558,11 @@ class _ErrorPanel extends StatelessWidget {
     final AccessRpcException? rpcError = error is AccessRpcException
         ? error as AccessRpcException
         : null;
-    final message = rpcError?.message ?? error.toString();
-    final code = rpcError?.code ?? 'UNKNOWN_ERROR';
+    final message =
+        rpcError?.displayMessage ??
+        (error is AccessFailure
+            ? (error as AccessFailure).displayMessage
+            : 'No se pudo cargar el detalle. Inténtalo de nuevo.');
 
     return LemaPanel(
       color: AppColors.error.withValues(alpha: 0.08),
@@ -497,11 +571,6 @@ class _ErrorPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('No se pudo cargar el detalle', style: textTheme.titleLarge),
-          const SizedBox(height: 6),
-          Text(
-            code,
-            style: textTheme.labelSmall?.copyWith(color: AppColors.error),
-          ),
           const SizedBox(height: 6),
           Text(
             message,
@@ -531,12 +600,13 @@ class _ActionErrorBanner extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            state.code ?? 'ERROR',
+            accessScanReasonLabel(state.code) ??
+                'No se pudo actualizar el acceso',
             style: textTheme.labelSmall?.copyWith(color: AppColors.error),
           ),
           const SizedBox(height: 6),
           Text(
-            state.message ?? 'No se pudo actualizar el acceso.',
+            'No se pudo actualizar el acceso. Inténtalo de nuevo.',
             style: textTheme.bodyMedium?.copyWith(
               color: AppColors.onSurfaceMuted,
             ),
@@ -601,7 +671,8 @@ String _validationLabel(
   if (event.reasonCode == 'CHECK_IN_REVERSED') {
     return 'Acceso desmarcado';
   }
-  return '${result.label} · ${_fallbackText(event.reasonCode)}';
+  final reason = accessScanReasonLabel(event.reasonCode);
+  return reason == null ? result.label : '${result.label} · $reason';
 }
 
 String _checkInMethodLabel(String? source) {
@@ -629,7 +700,7 @@ _TicketStatusPresentation _ticketStatusPresentation(String status) {
     case 'issued':
       return const _TicketStatusPresentation(
         label: 'Pendiente',
-        accent: AppColors.warning,
+        accent: AppColors.error,
       );
     case 'checked_in':
       return const _TicketStatusPresentation(
@@ -655,17 +726,17 @@ Color _resultAccent(TicketAccessResultCode result) {
     case TicketAccessResultCode.valid:
       return AppColors.success;
     case TicketAccessResultCode.alreadyUsed:
-      return AppColors.warning;
+      return AppColors.error;
     case TicketAccessResultCode.cancelledOrInvalid:
       return AppColors.error;
     case TicketAccessResultCode.notFound:
-      return AppColors.onSurfaceMuted;
+      return AppColors.error;
     case TicketAccessResultCode.wrongEvent:
-      return AppColors.secondary;
+      return AppColors.error;
     case TicketAccessResultCode.forbidden:
       return AppColors.error;
     case TicketAccessResultCode.temporaryError:
-      return AppColors.warning;
+      return AppColors.error;
   }
 }
 

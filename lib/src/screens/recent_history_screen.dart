@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../controllers/history_controller.dart';
 import '../core/scan_input_normalizer.dart';
 import '../core/rpc_exception.dart';
+import '../core/failure.dart';
 import '../models/history_models.dart';
 import '../models/ticket_models.dart';
 import '../providers/ticket_providers.dart';
@@ -17,12 +18,12 @@ import 'history_scan_result_screen.dart';
 /// [eventId] scopes the history to a single event.
 /// [onOpenTicketDetail] is called after selecting a ticket so the parent can
 /// navigate to the ticket detail page.
-void showRecentHistoryBottomSheet(
+Future<void> showRecentHistoryBottomSheet(
   BuildContext context, {
   String? eventId,
   VoidCallback? onOpenTicketDetail,
-}) {
-  showModalBottomSheet<void>(
+}) async {
+  await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
@@ -363,6 +364,9 @@ AccessTicketSnapshot _mapHistoryTicket(AccessHistoryTicketSnapshot ticket) {
     issuedAt: ticket.issuedAt,
     checkedInAt: ticket.checkedInAt,
     updatedAt: ticket.updatedAt,
+    zoneOffer: ticket.zoneOffer,
+    addOns: ticket.addOns,
+    validityWindow: ticket.validityWindow,
   );
 }
 
@@ -423,12 +427,17 @@ class _HistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = _toneForResultCode(item.resultCode);
+    final tone = _toneForResultCode(
+      item.resultCode,
+      hasPendingExtras:
+          item.ticket?.addOns.any((extra) => extra.remainingQuantity > 0) ==
+          true,
+    );
     final textTheme = Theme.of(context).textTheme;
     final ticket = item.ticket;
     final attendeeName =
         ticket?.attendee.fullName ?? item.actor.displayName ?? 'Sin asistente';
-    final ticketType = ticket?.ticketType.name ?? 'Sin tipo de entrada';
+    final ticketType = ticket?.ticketTypeLabel ?? 'Sin tipo de entrada';
     final code = _ticketReferenceLabel(item);
 
     return LemaStatusStripCard(
@@ -606,7 +615,9 @@ class _ErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final message = error is AccessRpcException
-        ? (error as AccessRpcException).message
+        ? (error as AccessRpcException).displayMessage
+        : error is AccessFailure
+        ? (error as AccessFailure).displayMessage
         : 'No se pudo cargar el historial.';
 
     return Center(
@@ -644,10 +655,13 @@ class _ErrorState extends StatelessWidget {
 // Tone / styling helpers
 // ---------------------------------------------------------------------------
 
-_HistoryTone _toneForResultCode(String resultCode) {
+_HistoryTone _toneForResultCode(
+  String resultCode, {
+  bool hasPendingExtras = false,
+}) {
   return _HistoryTone(
     label: historyResultLabel(resultCode),
-    accent: historyResultColor(resultCode),
+    accent: historyResultColor(resultCode, hasPendingExtras: hasPendingExtras),
   );
 }
 
@@ -662,7 +676,7 @@ String _sourceLabel(String source) {
     case 'manual_detail':
       return 'Detalle manual';
     default:
-      return source;
+      return 'Otro origen';
   }
 }
 

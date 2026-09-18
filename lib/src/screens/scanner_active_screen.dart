@@ -24,6 +24,25 @@ import '../widgets/lema_scaffold.dart';
 import 'history_scan_result_screen.dart';
 import 'recent_history_screen.dart';
 
+bool scannerNeedsPersistentResult(AccessScanOutcome outcome) {
+  if (outcome.resultCode == 'already_used') {
+    return outcome.ticket?.status == 'checked_in' &&
+        (outcome.ticket?.addOns.any((extra) => extra.remainingQuantity > 0) ??
+            false);
+  }
+  return outcome.requiresValidityDecision ||
+      (outcome.resultCode == 'valid' &&
+          (outcome.ticket?.addOns.isNotEmpty ?? false));
+}
+
+Color scannerResultAccent(AccessScanOutcome outcome) {
+  if (outcome.resultCode == 'already_used' &&
+      scannerNeedsPersistentResult(outcome)) {
+    return AppColors.warning;
+  }
+  return outcome.resultCode == 'valid' ? AppColors.success : AppColors.error;
+}
+
 /// Data class for holding the last scanned ticket information so it can be
 /// displayed in the bottom row even after the scan controller state resets.
 class _LastScanInfo {
@@ -35,12 +54,14 @@ class _LastScanInfo {
     required this.createdAt,
     this.ticketSelection,
     this.resultSnapshot,
+    this.hasPendingExtras = false,
   });
 
   final String? eventId;
   final String titleLabel;
   final String subtitleLabel;
   final String resultCode;
+  final bool hasPendingExtras;
   final DateTime? createdAt;
   final ticket_models.AccessTicketSelection? ticketSelection;
   final HistoryScanResultSnapshot? resultSnapshot;
@@ -73,6 +94,9 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
   bool _isSubmitting = false;
   bool _isAppActive = true;
   bool _isRouteVisible = true;
+  bool _isHistoryOpen = false;
+  bool _scannerNeedsReset = false;
+  bool _cameraUnavailable = false;
   DateTime? _scannerCooldownUntil;
   String? _lastAcceptedInput;
   DateTime? _lastAcceptedAt;
@@ -150,18 +174,15 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
     _slideDownController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     operatorRouteObserver.unsubscribe(this);
-    final scannerController = _scannerController;
-    _scannerController = null;
-    if (scannerController != null) {
-      unawaited(scannerController.dispose());
-    }
+    _isRouteVisible = false;
+    unawaited(_syncScannerState());
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _isAppActive = _isActiveLifecycleState(state);
-    _syncScannerState();
+    _syncScannerState(reset: !_isAppActive);
   }
 
   @override
@@ -171,7 +192,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
       scope: 'scanner',
     );
     _scannerCooldownUntil = DateTime.now().add(const Duration(seconds: 3));
-    unawaited(_disposeScannerController());
+    unawaited(_syncScannerState(reset: true));
     Future<void>.delayed(const Duration(seconds: 3), () {
       if (!mounted) {
         return;
@@ -184,7 +205,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
   @override
   void didPushNext() {
     _isRouteVisible = false;
-    _syncScannerState();
+    _syncScannerState(reset: true);
   }
 
   @override
@@ -228,68 +249,72 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
     );
   }
 
-  Future<void> _syncScannerState() {
-    final shouldRun =
-        mounted && _isAppActive && _isRouteVisible && !_isScannerCoolingDown;
+  bool get _shouldRunScanner =>
+      mounted && _isAppActive && _isRouteVisible && !_isScannerCoolingDown;
 
+  Future<void> _syncScannerState({bool reset = false}) {
+    _scannerNeedsReset |= reset;
     _scannerSync = _scannerSync.then((_) async {
-      if (shouldRun) {
-        await _ensureScannerController();
-        return;
+      try {
+        // Read current state when the queued operation runs, not when enqueued.
+        if (_scannerNeedsReset || !_shouldRunScanner) {
+          _scannerNeedsReset = false;
+          await _disposeScannerController();
+        }
+        if (_shouldRunScanner) await _ensureScannerController();
+      } catch (error, stackTrace) {
+        accessLog(
+          'Camera synchronization failed.',
+          scope: 'scanner',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        if (mounted) setState(() => _cameraUnavailable = true);
       }
-
-      await _disposeScannerController();
     });
-
     return _scannerSync;
   }
 
   Future<void> _ensureScannerController() async {
-    if (!mounted) {
-      return;
-    }
-
+    if (!_shouldRunScanner) return;
     var scannerController = _scannerController;
     if (scannerController == null) {
       scannerController = _createScannerController();
       _scannerController = scannerController;
-      setState(() {});
+      setState(() => _cameraUnavailable = false);
       await WidgetsBinding.instance.endOfFrame;
-
-      if (!mounted || _scannerController != scannerController) {
-        await scannerController.dispose();
-        return;
-      }
     }
-
+    if (!_shouldRunScanner) return;
     await scannerController.start();
   }
 
   Future<void> _disposeScannerController() async {
     final scannerController = _scannerController;
-    if (scannerController == null) {
-      return;
-    }
-
+    if (scannerController == null) return;
     _scannerController = null;
-
-    if (mounted) {
-      setState(() {});
-      await WidgetsBinding.instance.endOfFrame;
-    }
-
+    if (mounted) setState(() {});
+    // Release native camera resources before waiting for any frame: suspended
+    // apps may not render another frame until the phone is unlocked.
     try {
       await scannerController.stop();
-    } catch (error, stackTrace) {
-      accessLog(
-        'Scanner stop failed during dispose.',
-        scope: 'scanner',
-        error: error,
-        stackTrace: stackTrace,
-      );
+    } finally {
+      await scannerController.dispose();
     }
+  }
 
-    await scannerController.dispose();
+  Future<void> _openHistory(String? eventId) async {
+    setState(() => _isHistoryOpen = true);
+    try {
+      await showRecentHistoryBottomSheet(
+        context,
+        eventId: eventId,
+        onOpenTicketDetail: widget.onOpenTicketDetail,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isHistoryOpen = false);
+      }
+    }
   }
 
   Future<void> _submitDetectedCode(String rawInput) async {
@@ -336,7 +361,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
 
     _checkAnimController.forward(from: 0);
 
-    if (addOns.isEmpty && !outcome.requiresValidityDecision) {
+    if (!scannerNeedsPersistentResult(outcome)) {
       _resultDisplayTimer = Timer(_resultDisplayDuration, _finishResultOverlay);
     }
   }
@@ -353,6 +378,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
       _extraValidationError = null;
     });
     AccessScanOutcome? confirmedOutcome;
+    AccessTicketSnapshot? updatedTicket;
     try {
       if (outcome.requiresValidityDecision) {
         confirmedOutcome = await ref
@@ -365,7 +391,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
       }
 
       if (_selectedAddOnIds.isNotEmpty) {
-        await ref
+        updatedTicket = await ref
             .read(accessScanControllerProvider.notifier)
             .redeemAddOns(
               eventId: ticket.eventId,
@@ -397,15 +423,16 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
           _overlayResultCode = confirmedOutcome.resultCode;
         }
       });
-      _finishResultOverlay();
+      _finishResultOverlay(ticketOverride: updatedTicket);
     }
   }
 
-  void _finishResultOverlay() {
+  void _finishResultOverlay({AccessTicketSnapshot? ticketOverride}) {
     if (!mounted || !_showResultOverlay) return;
     _lastScanInfo = _lastScanInfoFromOutcome(
       ref.read(accessCurrentEventIdProvider),
       _overlayOutcome!,
+      ticketOverride: ticketOverride,
     );
     _slideDownController.forward(from: 0).then((_) {
       if (!mounted) return;
@@ -423,7 +450,10 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
 
   void _handleDetection(BarcodeCapture capture) {
     // Block scanning while showing result overlay
-    if (_isSubmitting || _showResultOverlay) {
+    if (!_shouldRunScanner ||
+        _isHistoryOpen ||
+        _isSubmitting ||
+        _showResultOverlay) {
       return;
     }
 
@@ -460,10 +490,6 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
     return null;
   }
 
-  Color _accentForResultCode(String resultCode) {
-    return historyResultColor(resultCode);
-  }
-
   IconData _iconForResultCode(String resultCode) {
     final variant = accessScanUiVariantForResultCode(resultCode);
     return switch (variant) {
@@ -472,17 +498,6 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
       AccessScanUiVariant.invalid => Icons.cancel_rounded,
       AccessScanUiVariant.notFound => Icons.search_off_rounded,
       AccessScanUiVariant.networkError => Icons.cloud_off_rounded,
-    };
-  }
-
-  String _badgeKickerForResultCode(String resultCode) {
-    final variant = accessScanUiVariantForResultCode(resultCode);
-    return switch (variant) {
-      AccessScanUiVariant.valid => 'Acceso autorizado',
-      AccessScanUiVariant.used => 'Revisión requerida',
-      AccessScanUiVariant.invalid => 'Acceso denegado',
-      AccessScanUiVariant.notFound => 'Sin coincidencia',
-      AccessScanUiVariant.networkError => 'Error temporal',
     };
   }
 
@@ -521,7 +536,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
     if (ticket != null) {
       return _joinOverlayLabelParts([
         ticket.ticketTypeLabel,
-        ticket.zoneOffer?.displayName,
+        ticket.zoneOffer?.guestCountLabel,
       ]);
     }
 
@@ -557,10 +572,14 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
   String? _overlayScheduleLabel(AccessScanOutcome? outcome) {
     final zoneOffer = outcome?.ticket?.zoneOffer;
     final validityWindow = outcome?.ticket?.validityWindow;
-    final startsAt = (zoneOffer?.serviceStartsAt ?? validityWindow?.startsAt)
-        ?.toLocal();
-    final endsAt = (zoneOffer?.serviceEndsAt ?? validityWindow?.endsAt)
-        ?.toLocal();
+    final startsAt =
+        (zoneOffer != null
+                ? zoneOffer.serviceStartsAt
+                : validityWindow?.startsAt)
+            ?.toLocal();
+    final endsAt =
+        (zoneOffer != null ? zoneOffer.serviceEndsAt : validityWindow?.endsAt)
+            ?.toLocal();
     if (startsAt == null && endsAt == null) return null;
 
     final interval = switch ((startsAt, endsAt)) {
@@ -570,7 +589,8 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
       (null, final end?) => 'hasta las ${_formatOverlayTime(end)}',
       _ => null,
     };
-    return interval == null ? null : 'Horario válido: $interval';
+    final label = zoneOffer != null ? 'Horario de mesa' : 'Horario de acceso';
+    return interval == null ? null : '$label: $interval';
   }
 
   String _formatOverlayTime(DateTime value) {
@@ -642,6 +662,8 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
           'Sin asistente',
       subtitleLabel: _historyEntrySubtitle(entry),
       resultCode: entry.resultCode,
+      hasPendingExtras:
+          ticket?.addOns.any((extra) => extra.remainingQuantity > 0) ?? false,
       createdAt: entry.createdAt,
       ticketSelection:
           ticket == null || historyResultNeedsExplanation(entry.resultCode)
@@ -655,19 +677,23 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
 
   _LastScanInfo _lastScanInfoFromOutcome(
     String? currentEventId,
-    AccessScanOutcome outcome,
-  ) {
+    AccessScanOutcome outcome, {
+    AccessTicketSnapshot? ticketOverride,
+  }) {
+    final ticket = ticketOverride ?? outcome.ticket;
     return _LastScanInfo(
       eventId: _normalizedEventId(outcome.ticket?.eventId ?? currentEventId),
       titleLabel: _outcomeTitleLabel(outcome),
       subtitleLabel: _outcomeSubtitleLabel(outcome),
       resultCode: outcome.resultCode,
+      hasPendingExtras:
+          ticket?.addOns.any((extra) => extra.remainingQuantity > 0) ?? false,
       createdAt: outcome.scanLog?.createdAt ?? DateTime.now(),
       ticketSelection:
           outcome.ticket == null ||
               historyResultNeedsExplanation(outcome.resultCode)
           ? null
-          : _selectionFromScanSnapshot(outcome.ticket!),
+          : _selectionFromScanSnapshot(ticket!),
       resultSnapshot: historyResultNeedsExplanation(outcome.resultCode)
           ? _resultSnapshotFromOutcome(outcome)
           : null,
@@ -763,6 +789,9 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
       issuedAt: ticket.issuedAt,
       checkedInAt: ticket.checkedInAt,
       updatedAt: ticket.updatedAt,
+      zoneOffer: ticket.zoneOffer,
+      addOns: ticket.addOns,
+      validityWindow: ticket.validityWindow,
     );
   }
 
@@ -851,6 +880,9 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
         issuedAt: scanTicket.issuedAt,
         checkedInAt: scanTicket.checkedInAt,
         updatedAt: scanTicket.updatedAt,
+        zoneOffer: scanTicket.zoneOffer,
+        validityWindow: scanTicket.validityWindow,
+        addOns: scanTicket.addOns,
       ),
       contextLabel: 'Escáner',
     );
@@ -875,7 +907,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
   ) {
     return HistoryScanResultSnapshot(
       resultCode: outcome.resultCode,
-      reasonCode: outcome.displayReasonLabel,
+      reasonCode: outcome.reasonCode,
       sourceLabel: _sourceLabel(outcome.source.name),
       referenceLabel:
           outcome.ticket?.code ?? outcome.normalizedInput ?? outcome.rawInput,
@@ -944,8 +976,8 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
     final topPadding = mediaQuery.viewPadding.top;
     final hasPersistentModal =
         _showResultOverlay &&
-        ((_overlayOutcome?.ticket?.addOns.isNotEmpty ?? false) ||
-            (_overlayOutcome?.requiresValidityDecision ?? false));
+        _overlayOutcome != null &&
+        scannerNeedsPersistentResult(_overlayOutcome!);
 
     return OperatorNavigationScope(
       canGoBack: false,
@@ -990,6 +1022,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                   if (_scannerController != null)
                     Positioned.fill(
                       child: MobileScanner(
+                        key: ObjectKey(_scannerController),
                         controller: _scannerController!,
                         fit: BoxFit.cover,
                         scanWindow: scanWindow,
@@ -998,7 +1031,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                           return _CameraErrorView(
                             error: error,
                             onRetry: () {
-                              unawaited(_syncScannerState());
+                              unawaited(_syncScannerState(reset: true));
                             },
                           );
                         },
@@ -1012,6 +1045,14 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                       child: ColoredBox(color: Colors.black),
                     ),
 
+                  if (_cameraUnavailable)
+                    const Center(
+                      child: Text(
+                        'No se pudo activar la cámara.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
                   // -- Scan overlay with cutout --
                   Positioned.fill(
                     child: IgnorePointer(
@@ -1165,9 +1206,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                       builder: (context, child) {
                         final requiresValidityDecision =
                             _overlayOutcome?.requiresValidityDecision ?? false;
-                        final accent = requiresValidityDecision
-                            ? AppColors.warning
-                            : _accentForResultCode(_overlayResultCode!);
+                        final accent = scannerResultAccent(_overlayOutcome!);
                         final icon = requiresValidityDecision
                             ? Icons.schedule_rounded
                             : _iconForResultCode(_overlayResultCode!);
@@ -1175,9 +1214,6 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                           _overlayOutcome,
                           _overlayResultCode!,
                         );
-                        final kicker = requiresValidityDecision
-                            ? 'Decisión requerida'
-                            : _badgeKickerForResultCode(_overlayResultCode!);
                         final primaryLabel = _overlayPrimaryLabel(
                           _overlayOutcome,
                         );
@@ -1237,13 +1273,15 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                                 ? _ExtrasScanResultModal(
                                     accent: accent,
                                     icon: icon,
-                                    kicker: kicker,
                                     headline: headline,
                                     primaryLabel: primaryLabel,
                                     secondaryLabel: secondaryLabel,
                                     scheduleLabel: scheduleLabel,
                                     ticketStatus:
                                         _overlayOutcome!.ticket!.status,
+                                    alreadyUsed:
+                                        _overlayOutcome!.resultCode ==
+                                        'already_used',
                                     addOns: addOns,
                                     selectedIds: _selectedAddOnIds,
                                     isLoading: _isRedeemingExtras,
@@ -1267,7 +1305,6 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                                 : _ScanResultOverlayBadge(
                                     accent: accent,
                                     icon: icon,
-                                    kicker: kicker,
                                     headline: headline,
                                     primaryLabel: primaryLabel,
                                     secondaryLabel: secondaryLabel,
@@ -1288,11 +1325,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                       lastScan: displayedLastScan,
                       onOpenHistory: hasPersistentModal
                           ? null
-                          : () => showRecentHistoryBottomSheet(
-                              context,
-                              eventId: currentEventId,
-                              onOpenTicketDetail: widget.onOpenTicketDetail,
-                            ),
+                          : () => _openHistory(currentEventId),
                       onTapLastScan: hasPersistentModal
                           ? null
                           : () => _openLastScan(displayedLastScan),
@@ -1316,12 +1349,12 @@ class _ExtrasScanResultModal extends StatelessWidget {
   const _ExtrasScanResultModal({
     required this.accent,
     required this.icon,
-    required this.kicker,
     required this.headline,
     required this.primaryLabel,
     required this.secondaryLabel,
     required this.scheduleLabel,
     required this.ticketStatus,
+    required this.alreadyUsed,
     required this.addOns,
     required this.selectedIds,
     required this.isLoading,
@@ -1334,12 +1367,12 @@ class _ExtrasScanResultModal extends StatelessWidget {
 
   final Color accent;
   final IconData icon;
-  final String kicker;
   final String headline;
   final String? primaryLabel;
   final String? secondaryLabel;
   final String? scheduleLabel;
   final String ticketStatus;
+  final bool alreadyUsed;
   final List<AccessTicketAddOn> addOns;
   final Set<String> selectedIds;
   final bool isLoading;
@@ -1372,112 +1405,100 @@ class _ExtrasScanResultModal extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    accent.withValues(alpha: 0.22),
-                    accent.withValues(alpha: 0.07),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: accent.withValues(alpha: 0.28)),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    kicker.toUpperCase(),
-                    style: textTheme.labelSmall?.copyWith(
-                      color: accent,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Icon(icon, color: accent, size: 52),
-                  const SizedBox(height: 8),
-                  Text(
-                    headline.toUpperCase(),
-                    textAlign: TextAlign.center,
-                    style: textTheme.headlineMedium?.copyWith(
-                      color: accent,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (primaryLabel != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      primaryLabel!,
-                      textAlign: TextAlign.center,
-                      style: textTheme.titleLarge?.copyWith(
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                  if (secondaryLabel != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      'TIPO DE ENTRADA',
-                      style: textTheme.labelSmall?.copyWith(
-                        color: Colors.white60,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      secondaryLabel!,
-                      textAlign: TextAlign.center,
-                      style: textTheme.titleLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                  if (scheduleLabel != null) ...[
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.schedule_rounded, color: accent, size: 18),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            scheduleLabel!,
-                            style: textTheme.bodyMedium?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (addOns.isNotEmpty) ...[
-              const SizedBox(height: 18),
-              Text('Canjea los siguientes extras', style: textTheme.titleLarge),
-              const SizedBox(height: 8),
-            ],
             Expanded(
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  if (requiresValidityDecision)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      child: Text(
-                        'Esta entrada está fuera de su horario de validez. Elige si quieres validarla de forma excepcional.',
-                        textAlign: TextAlign.center,
-                        style: textTheme.bodyLarge?.copyWith(
-                          color: Colors.white,
-                        ),
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          accent.withValues(alpha: 0.22),
+                          accent.withValues(alpha: 0.07),
+                        ],
                       ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: accent.withValues(alpha: 0.28)),
                     ),
+                    child: Column(
+                      children: [
+                        Icon(icon, color: accent, size: 52),
+                        const SizedBox(height: 8),
+                        Text(
+                          headline.toUpperCase(),
+                          textAlign: TextAlign.center,
+                          style: textTheme.headlineMedium?.copyWith(
+                            color: accent,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (primaryLabel != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            primaryLabel!,
+                            textAlign: TextAlign.center,
+                            style: textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                        if (secondaryLabel != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            'TIPO DE ENTRADA',
+                            style: textTheme.labelSmall?.copyWith(
+                              color: Colors.white60,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            secondaryLabel!,
+                            textAlign: TextAlign.center,
+                            style: textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                        if (scheduleLabel != null) ...[
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.schedule_rounded,
+                                color: accent,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  scheduleLabel!,
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (addOns.isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    Text(
+                      'Canjea los siguientes extras',
+                      style: textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   if (addOns.isNotEmpty && !hasRemaining)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 20),
@@ -1557,12 +1578,16 @@ class _ExtrasScanResultModal extends StatelessWidget {
               label: isLoading
                   ? 'Procesando...'
                   : selectedIds.isEmpty
-                  ? 'Validar entrada'
+                  ? (alreadyUsed || !requiresValidityDecision
+                        ? 'Cerrar'
+                        : 'Validar entrada')
                   : 'Canjear extras',
               icon: isLoading
                   ? Icons.hourglass_top
                   : selectedIds.isEmpty
-                  ? Icons.verified_rounded
+                  ? (alreadyUsed || !requiresValidityDecision
+                        ? Icons.close_rounded
+                        : Icons.verified_rounded)
                   : Icons.redeem_rounded,
               onPressed: isLoading ? null : onValidate,
             ),
@@ -1650,7 +1675,10 @@ class _BottomLastScanPanel extends StatelessWidget {
         titleLabel: scan.titleLabel,
         subtitleLabel: scan.subtitleLabel,
         resultLabel: historyResultLabel(scan.resultCode),
-        resultColor: historyResultColor(scan.resultCode),
+        resultColor: historyResultColor(
+          scan.resultCode,
+          hasPendingExtras: scan.hasPendingExtras,
+        ),
         relativeTimeLabel: formatRelativeTime(scan.createdAt),
         onTap: onTapLastScan,
       ),
@@ -1688,7 +1716,6 @@ class _ScanResultOverlayBadge extends StatelessWidget {
   const _ScanResultOverlayBadge({
     required this.accent,
     required this.icon,
-    required this.kicker,
     required this.headline,
     this.primaryLabel,
     this.secondaryLabel,
@@ -1698,7 +1725,6 @@ class _ScanResultOverlayBadge extends StatelessWidget {
 
   final Color accent;
   final IconData icon;
-  final String kicker;
   final String headline;
   final String? primaryLabel;
   final String? secondaryLabel;
@@ -1714,7 +1740,6 @@ class _ScanResultOverlayBadge extends StatelessWidget {
     final cardRadius = lerpDouble(32, 24, clampedCollapse)!;
     final horizontalPadding = lerpDouble(18, 14, clampedCollapse)!;
     final verticalPadding = lerpDouble(18, 12, clampedCollapse)!;
-    final sectionGap = lerpDouble(16, 10, clampedCollapse)!;
     final headlineSize = lerpDouble(24, 18, clampedCollapse)!;
     final primaryOpacity = (1.0 - (clampedCollapse * 1.3)).clamp(0.0, 1.0);
     final secondaryOpacity = (1.0 - (clampedCollapse * 1.7)).clamp(0.0, 1.0);
@@ -1752,26 +1777,6 @@ class _ScanResultOverlayBadge extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: lerpDouble(10, 8, clampedCollapse)!,
-              vertical: lerpDouble(6, 4, clampedCollapse)!,
-            ),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              kicker.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: textTheme.labelSmall?.copyWith(
-                color: accent,
-                letterSpacing: lerpDouble(1.2, 1.0, clampedCollapse),
-              ),
-            ),
-          ),
-          SizedBox(height: sectionGap),
-          Container(
             width: iconContainerSize,
             height: iconContainerSize,
             decoration: ShapeDecoration(
@@ -1797,7 +1802,9 @@ class _ScanResultOverlayBadge extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          if (primaryLabel != null && primaryLabel!.isNotEmpty)
+          if (clampedCollapse < 0.55 &&
+              primaryLabel != null &&
+              primaryLabel!.isNotEmpty)
             Opacity(
               opacity: primaryOpacity,
               child: Padding(
@@ -1816,7 +1823,9 @@ class _ScanResultOverlayBadge extends StatelessWidget {
                 ),
               ),
             ),
-          if (secondaryLabel != null && secondaryLabel!.isNotEmpty)
+          if (clampedCollapse < 0.55 &&
+              secondaryLabel != null &&
+              secondaryLabel!.isNotEmpty)
             Opacity(
               opacity: secondaryOpacity,
               child: Padding(
@@ -1835,7 +1844,9 @@ class _ScanResultOverlayBadge extends StatelessWidget {
                 ),
               ),
             ),
-          if (tertiaryLabel != null && tertiaryLabel!.isNotEmpty)
+          if (clampedCollapse < 0.55 &&
+              tertiaryLabel != null &&
+              tertiaryLabel!.isNotEmpty)
             Opacity(
               opacity: secondaryOpacity,
               child: Padding(
@@ -1942,7 +1953,7 @@ class _CameraErrorView extends StatelessWidget {
         normalizedMessage.contains('not authorized');
     final helperText = isPermissionIssue
         ? 'Activa el acceso a la cámara para Lema Access en los ajustes del sistema y vuelve a intentarlo.'
-        : 'Cierra y vuelve a abrir el escáner. Si el problema continúa, revisa los permisos de cámara del dispositivo.';
+        : 'Pulsa Reintentar para volver a activar el escáner.';
 
     return Container(
       color: Colors.black,
@@ -1961,14 +1972,6 @@ class _CameraErrorView extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 10),
-            Text(
-              message,
-              style: textTheme.bodyMedium?.copyWith(
-                color: AppColors.onSurfaceMuted,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
             Text(
               helperText,
               style: textTheme.bodySmall?.copyWith(

@@ -503,7 +503,7 @@ class _EventsErrorState extends StatelessWidget {
         ? error as AccessFailure
         : null;
     final message =
-        accessFailure?.message ?? 'No se pudieron cargar los eventos.';
+        accessFailure?.displayMessage ?? 'No se pudieron cargar los eventos.';
 
     return Center(
       child: LemaPanel(

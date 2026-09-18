@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/rpc_exception.dart';
+import '../core/failure.dart';
 import '../models/ticket_models.dart';
 import '../services/ticket_service.dart';
 import 'activity_refresh_providers.dart';
@@ -113,6 +114,12 @@ class AccessTicketCheckInController extends Notifier<AccessTicketCheckInState> {
         bumpAccessActivityRefreshTick(ref);
       }
       state = AccessTicketCheckInState.success(outcome);
+    } on AccessFailure catch (error) {
+      state = AccessTicketCheckInState.failure(
+        code: error.code ?? 'UNKNOWN_ERROR',
+        message: error.displayMessage,
+        details: error,
+      );
     } on AccessRpcException catch (error) {
       ref.read(accessLatestCheckInOutcomeProvider.notifier).state = null;
       state = AccessTicketCheckInState.failure(
@@ -153,6 +160,12 @@ class AccessTicketCheckInController extends Notifier<AccessTicketCheckInState> {
         bumpAccessActivityRefreshTick(ref);
       }
       state = AccessTicketCheckInState.success(outcome);
+    } on AccessFailure catch (error) {
+      state = AccessTicketCheckInState.failure(
+        code: error.code ?? 'UNKNOWN_ERROR',
+        message: error.displayMessage,
+        details: error,
+      );
     } on AccessRpcException catch (error) {
       state = AccessTicketCheckInState.failure(
         code: error.code,

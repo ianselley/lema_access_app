@@ -50,7 +50,7 @@ extension AccessEventSummaryUi on AccessEventSummary {
       case 'archived':
         return 'Archivado';
       default:
-        return operationalState;
+        return 'Estado desconocido';
     }
   }
 
@@ -63,7 +63,7 @@ extension AccessEventSummaryUi on AccessEventSummary {
       case 'brand_owner':
         return 'Propietario de marca';
       default:
-        return membershipRole ?? 'Sin rol';
+        return 'Sin rol reconocido';
     }
   }
 }
@@ -116,7 +116,7 @@ extension AccessEventHomeUi on AccessEventHome {
       case 'archived':
         return 'Archivado';
       default:
-        return operationalState;
+        return 'Estado desconocido';
     }
   }
 
@@ -129,7 +129,7 @@ extension AccessEventHomeUi on AccessEventHome {
       case 'brand_owner':
         return 'Propietario de marca';
       default:
-        return membershipRole ?? 'Sin rol';
+        return 'Sin rol reconocido';
     }
   }
 }
@@ -137,13 +137,31 @@ extension AccessEventHomeUi on AccessEventHome {
 extension AccessHistoryItemUi on AccessHistoryItem {
   String get titleLabel => ticket?.attendee.fullName ?? actor.label;
 
+  List<String> get detailLabels => [
+    ticket?.ticketTypeLabel ?? 'Sin tipo de entrada',
+    ticket?.code?.trim().isNotEmpty == true
+        ? ticket!.code!.trim()
+        : normalizedInput?.trim().isNotEmpty == true
+        ? normalizedInput!.trim()
+        : rawInput?.trim().isNotEmpty == true
+        ? rawInput!.trim()
+        : 'Sin código',
+  ];
+
   String get subtitleLabel {
     final parts = <String>[
       if (ticket?.code != null && ticket!.code!.trim().isNotEmpty)
         ticket!.code!,
       if (normalizedInput != null && normalizedInput!.trim().isNotEmpty)
         normalizedInput!,
-      if (source != null && source!.trim().isNotEmpty) source!,
+      if (source != null && source!.trim().isNotEmpty)
+        switch (source) {
+          'scanner' => 'Escáner',
+          'manual_code' => 'Código manual',
+          'manual_search' => 'Búsqueda manual',
+          'manual_detail' => 'Detalle manual',
+          _ => 'Otro origen',
+        },
     ];
 
     if (parts.isEmpty) {
@@ -155,7 +173,11 @@ extension AccessHistoryItemUi on AccessHistoryItem {
 
   String get resultLabel => historyResultLabel(resultCode);
 
-  Color get resultColor => historyResultColor(resultCode);
+  Color get resultColor => historyResultColor(
+    resultCode,
+    hasPendingExtras:
+        ticket?.addOns.any((extra) => extra.remainingQuantity > 0) == true,
+  );
 
   String get relativeTimeLabel => formatRelativeTime(createdAt);
 }
@@ -181,23 +203,12 @@ String historyResultLabel(String? resultCode) {
   }
 }
 
-Color historyResultColor(String? resultCode) {
-  switch (resultCode) {
-    case 'valid':
-      return AppColors.success;
-    case 'already_used':
-      return AppColors.warning;
-    case 'wrong_event':
-    case 'forbidden':
-    case 'cancelled_or_invalid':
-      return AppColors.error;
-    case 'not_found':
-      return const Color(0xFF9CA3AF);
-    case 'temporary_error':
-      return AppColors.primaryStrong;
-    default:
-      return AppColors.primary;
+Color historyResultColor(String? resultCode, {bool hasPendingExtras = false}) {
+  if (resultCode == 'valid') return AppColors.success;
+  if (resultCode == 'already_used' && hasPendingExtras) {
+    return AppColors.warning;
   }
+  return AppColors.error;
 }
 
 bool historyResultNeedsExplanation(String? resultCode) {
@@ -218,6 +229,7 @@ class AccessHistoryListRow extends StatelessWidget {
     required this.resultLabel,
     required this.resultColor,
     required this.relativeTimeLabel,
+    this.detailLabels,
     this.onTap,
   });
 
@@ -226,6 +238,7 @@ class AccessHistoryListRow extends StatelessWidget {
   final String resultLabel;
   final Color resultColor;
   final String relativeTimeLabel;
+  final List<String>? detailLabels;
   final VoidCallback? onTap;
 
   @override
@@ -249,12 +262,16 @@ class AccessHistoryListRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  subtitleLabel,
-                  style: textTheme.labelMedium?.copyWith(
-                    color: AppColors.onSurfaceMuted,
+                for (final detail in detailLabels ?? [subtitleLabel])
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(
+                      detail,
+                      style: textTheme.labelMedium?.copyWith(
+                        color: AppColors.onSurfaceMuted,
+                      ),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
