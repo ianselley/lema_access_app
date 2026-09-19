@@ -6,6 +6,8 @@
 	<array>
 		<string>applinks:lema.club</string>
 		<string>applinks:staging.lema.club</string>
+		<string>webcredentials:lema.club</string>
+		<string>webcredentials:staging.lema.club</string>
 	</array>
 </dict>
 </plist>

@@ -68,6 +68,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void initState() {
     super.initState();
     _step = widget.initialStep;
+    _emailController.addListener(_submitAutofilledCredentials);
+    _passwordController.addListener(_submitAutofilledCredentials);
     final initialEmail = widget.initialEmail?.trim();
     if (initialEmail != null && initialEmail.isNotEmpty) {
       _emailController.text = initialEmail;
@@ -171,6 +173,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email.trim());
   }
 
+  void _submitAutofilledCredentials() {
+    if (_step != AccessAuthStep.email ||
+        _isCheckingEmail ||
+        _passwordController.text.isEmpty ||
+        !_isValidEmailFormat(_emailController.text)) {
+      return;
+    }
+
+    _submitEmail();
+  }
+
   bool _isValidUsernameFormat(String username) {
     return RegExp(
       r'^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$',
@@ -214,12 +227,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         return;
       }
 
+      if (!registered) {
+        _passwordController.clear();
+      }
       setState(() {
         _isCheckingEmail = false;
         _step = registered ? AccessAuthStep.password : AccessAuthStep.signup;
         _statusMessage = null;
         _statusIsError = false;
       });
+      if (registered) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _step == AccessAuthStep.password) {
+            _passwordFocusNode.requestFocus();
+            if (_passwordController.text.isNotEmpty) {
+              _submitPassword();
+            }
+          }
+        });
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -483,34 +509,49 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Widget _buildEmailStep() {
     return _AuthStepCard(
-      title: 'Correo electrónico',
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextField(
-            controller: _emailController,
-            focusNode: _emailFocusNode,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.done,
-            autofillHints: const [AutofillHints.email],
-            decoration: const InputDecoration(
-              labelText: 'Correo electrónico',
-              hintText: 'staff@lema.io',
+      title: 'Introduce tu correo',
+      body: AutofillGroup(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _emailController,
+              focusNode: _emailFocusNode,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.done,
+              autofillHints: const [
+                AutofillHints.username,
+                AutofillHints.email,
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Correo electrónico',
+                hintText: 'staff@lema.club',
+              ),
+              onChanged: (_) => _clearStatus(),
+              onSubmitted: (_) => _submitEmail(),
             ),
-            onChanged: (_) => _clearStatus(),
-            onSubmitted: (_) => _submitEmail(),
-          ),
-          if (_statusMessage != null) ...[
-            const SizedBox(height: 12),
-            _StatusMessage(message: _statusMessage!, isError: _statusIsError),
+            Offstage(
+              child: TextField(
+                key: const Key('email-autofill-password'),
+                controller: _passwordController,
+                obscureText: true,
+                autofillHints: const [AutofillHints.password],
+              ),
+            ),
+            if (_statusMessage != null) ...[
+              const SizedBox(height: 12),
+              _StatusMessage(message: _statusMessage!, isError: _statusIsError),
+            ],
+            const SizedBox(height: 18),
+            LemaPrimaryButton(
+              label: _isCheckingEmail ? 'Comprobando...' : 'Continuar',
+              icon: _isCheckingEmail
+                  ? Icons.hourglass_top
+                  : Icons.arrow_forward,
+              onPressed: _isCheckingEmail ? null : _submitEmail,
+            ),
           ],
-          const SizedBox(height: 18),
-          LemaPrimaryButton(
-            label: _isCheckingEmail ? 'Comprobando...' : 'Continuar',
-            icon: _isCheckingEmail ? Icons.hourglass_top : Icons.arrow_forward,
-            onPressed: _isCheckingEmail ? null : _submitEmail,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -826,7 +867,7 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (String title, String? subtitle) = switch (step) {
-      AccessAuthStep.email => ('Identifícate', null),
+      AccessAuthStep.email => ('Empecemos', null),
       AccessAuthStep.password => ('Contraseña', null),
       AccessAuthStep.signup => (
         'Alta',
@@ -901,17 +942,13 @@ class _Header extends StatelessWidget {
 class _AuthStepCard extends StatelessWidget {
   const _AuthStepCard({
     this.title,
-    this.subtitle,
     required this.body,
     this.headerBadge,
-    this.trailingAction,
   });
 
   final String? title;
-  final String? subtitle;
   final Widget body;
   final Widget? headerBadge;
-  final Widget? trailingAction;
 
   @override
   Widget build(BuildContext context) {
@@ -924,41 +961,15 @@ class _AuthStepCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (title != null || subtitle != null || trailingAction != null)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (title != null)
-                        Text(title!, style: textTheme.headlineMedium),
-                      if (subtitle != null) ...[
-                        if (title != null) const SizedBox(height: 8),
-                        Text(
-                          subtitle!,
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: AppColors.onSurfaceMuted,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (trailingAction != null) trailingAction!,
-              ],
+          if (title != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 18),
+              child: Text(title!, style: textTheme.headlineMedium),
             ),
           if (headerBadge case final badge?) ...[
-            if (title != null || subtitle != null || trailingAction != null)
-              const SizedBox(height: 14),
             badge,
-          ],
-          if (title != null ||
-              subtitle != null ||
-              trailingAction != null ||
-              headerBadge != null)
             const SizedBox(height: 18),
+          ],
           body,
         ],
       ),

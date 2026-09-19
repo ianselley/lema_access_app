@@ -72,15 +72,31 @@ Future<void> showJoinWithCodeSheet(BuildContext context) async {
     return;
   }
 
+  _showStatusNotification(
+    context,
+    scannerInviteClaimSuccessMessage(claimedResult),
+  );
+}
+
+void _showStatusNotification(
+  BuildContext context,
+  String message, {
+  bool isError = false,
+}) {
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (messenger == null) {
     return;
   }
 
-  messenger.hideCurrentSnackBar();
-  messenger.showSnackBar(
-    SnackBar(content: Text(scannerInviteClaimSuccessMessage(claimedResult))),
-  );
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.error : AppColors.secondary,
+        duration: const Duration(seconds: 4),
+      ),
+    );
 }
 
 class JoinWithCodePanel extends ConsumerStatefulWidget {
@@ -124,10 +140,23 @@ class _JoinWithCodePanelState extends ConsumerState<JoinWithCodePanel> {
         .read(accessScannerInviteClaimControllerProvider.notifier)
         .claimCode(_codeController.text);
 
-    if (result == null) {
+    if (!mounted) {
       return;
     }
 
+    if (result == null) {
+      _showStatusNotification(
+        context,
+        ref.read(accessScannerInviteClaimControllerProvider).message ??
+            'No se pudo aplicar el código. Inténtalo de nuevo.',
+        isError: true,
+      );
+      return;
+    }
+
+    if (widget.onClaimed == null) {
+      _showStatusNotification(context, scannerInviteClaimSuccessMessage(result));
+    }
     widget.onClaimed?.call(result);
   }
 
@@ -205,89 +234,8 @@ class _JoinWithCodePanelState extends ConsumerState<JoinWithCodePanel> {
                   : Icons.vpn_key_outlined,
               onPressed: canSubmit ? _submit : null,
             ),
-            if (claimState.status ==
-                AccessScannerInviteClaimStatus.failure) ...[
-              const SizedBox(height: 12),
-              _ClaimStatusBanner(
-                message:
-                    claimState.message ??
-                    'No se pudo aplicar el código. Inténtalo de nuevo.',
-                accent: AppColors.error,
-                backgroundOpacity: 0.08,
-                borderOpacity: 0.24,
-                icon: Icons.error_outline,
-              ),
-            ],
-            if (claimState.status == AccessScannerInviteClaimStatus.success &&
-                claimState.result != null) ...[
-              const SizedBox(height: 12),
-              _ClaimStatusBanner(
-                message: scannerInviteClaimSuccessMessage(claimState.result!),
-                accent: AppColors.secondary,
-                backgroundOpacity: 0.10,
-                borderOpacity: 0.22,
-                icon: Icons.verified_user_outlined,
-                detail: scannerInviteClaimDetailMessage(claimState.result!),
-              ),
-            ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ClaimStatusBanner extends StatelessWidget {
-  const _ClaimStatusBanner({
-    required this.message,
-    required this.accent,
-    required this.backgroundOpacity,
-    required this.borderOpacity,
-    required this.icon,
-    this.detail,
-  });
-
-  final String message;
-  final String? detail;
-  final Color accent;
-  final double backgroundOpacity;
-  final double borderOpacity;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return LemaPanel(
-      color: accent.withValues(alpha: backgroundOpacity),
-      borderColor: accent.withValues(alpha: borderOpacity),
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: accent, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  message,
-                  style: textTheme.bodyMedium?.copyWith(color: accent),
-                ),
-                if (detail != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    detail!,
-                    style: textTheme.labelSmall?.copyWith(
-                      color: AppColors.onSurfaceMuted,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -330,7 +278,7 @@ class _ScannerInviteCodeFormatter extends TextInputFormatter {
 
 String scannerInviteClaimSuccessMessage(AccessScannerInviteClaimResult result) {
   if (result.isBrandMemberClaim) {
-    return 'Ya formas parte de la marca como scanner.';
+    return '¡Código aplicado! Ya eres scanner en esta marca.';
   }
 
   final eventCount = result.resolvedEventCount;
