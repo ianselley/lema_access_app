@@ -76,6 +76,7 @@ class EventHomeScreen extends ConsumerWidget {
                         checkedInCount: home.counters.checkedInCount,
                         pendingCount: home.counters.pendingCheckInCount,
                         progress: home.progress,
+                        showCurrentOccupancy: home.canViewCurrentOccupancy,
                       ),
                       const SizedBox(height: 24),
                       LemaSectionHeading(
@@ -234,6 +235,7 @@ class _TopHero extends StatelessWidget {
     required this.checkedInCount,
     required this.pendingCount,
     required this.progress,
+    required this.showCurrentOccupancy,
   });
 
   final String eventName;
@@ -245,6 +247,7 @@ class _TopHero extends StatelessWidget {
   final int checkedInCount;
   final int pendingCount;
   final double progress;
+  final bool showCurrentOccupancy;
 
   @override
   Widget build(BuildContext context) {
@@ -305,24 +308,28 @@ class _TopHero extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 18),
-          Text(
-            progressLabel,
-            style: textTheme.headlineLarge?.copyWith(color: AppColors.primary),
-          ),
-          const SizedBox(height: 10),
-          LemaProgressBar(
-            value: progress,
-            color: AppColors.primaryStrong,
-            background: AppColors.backgroundAlt,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '$checkedInCount accesos validados · $pendingCount pendientes · $capacityLabel',
-            style: textTheme.bodyMedium?.copyWith(
-              color: AppColors.onSurfaceMuted,
+          if (showCurrentOccupancy) ...[
+            const SizedBox(height: 18),
+            Text(
+              progressLabel,
+              style: textTheme.headlineLarge?.copyWith(
+                color: AppColors.primary,
+              ),
             ),
-          ),
+            const SizedBox(height: 10),
+            LemaProgressBar(
+              value: progress,
+              color: AppColors.primaryStrong,
+              background: AppColors.backgroundAlt,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '$checkedInCount accesos validados · $pendingCount pendientes · $capacityLabel',
+              style: textTheme.bodyMedium?.copyWith(
+                color: AppColors.onSurfaceMuted,
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -53,7 +53,6 @@ class TicketDetailScreen extends ConsumerWidget {
                   error: (error, stackTrace) => _ErrorPanel(error: error),
                   data: (detail) => _DetailContent(
                     detail: detail,
-                    selection: selection,
                     actionState: actionState,
                     onConfirm: () async {
                       await ref
@@ -196,7 +195,6 @@ class TicketDetailScreen extends ConsumerWidget {
 class _DetailContent extends StatelessWidget {
   const _DetailContent({
     required this.detail,
-    required this.selection,
     required this.actionState,
     required this.onConfirm,
     required this.onUndo,
@@ -204,7 +202,6 @@ class _DetailContent extends StatelessWidget {
   });
 
   final AccessTicketDetail detail;
-  final AccessTicketSelection selection;
   final AccessTicketCheckInState actionState;
   final Future<void> Function() onConfirm;
   final Future<void> Function() onUndo;
@@ -281,28 +278,6 @@ class _DetailContent extends StatelessWidget {
                 style: textTheme.bodyMedium?.copyWith(
                   color: AppColors.onSurfaceMuted,
                 ),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  LemaTag(
-                    label: selection.detailContextLabel,
-                    color: AppColors.surfaceHigh,
-                    textColor: AppColors.primary,
-                    icon: Icons.search_outlined,
-                  ),
-                  LemaTag(
-                    label: detail.ticket.canCheckIn
-                        ? 'Confirmable'
-                        : 'Bloqueado',
-                    color: AppColors.surfaceHigh,
-                    textColor: detail.ticket.canCheckIn
-                        ? AppColors.secondary
-                        : AppColors.error,
-                  ),
-                ],
               ),
             ],
           ),

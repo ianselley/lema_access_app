@@ -877,6 +877,7 @@ class AccessEventHome {
     required this.counters,
     required this.recentHistoryPreview,
     required this.lastActivityAt,
+    required this.canViewCurrentOccupancy,
   });
 
   factory AccessEventHome.fromJson(Map<String, dynamic> json) {
@@ -893,6 +894,7 @@ class AccessEventHome {
         json['recent_history_preview'],
       ).map(AccessHistoryItem.fromJson).toList(growable: false),
       lastActivityAt: readNullableDateTime(json['last_activity_at']),
+      canViewCurrentOccupancy: false,
     );
   }
 
@@ -906,6 +908,23 @@ class AccessEventHome {
   final AccessEventCounters counters;
   final List<AccessHistoryItem> recentHistoryPreview;
   final DateTime? lastActivityAt;
+  final bool canViewCurrentOccupancy;
+
+  AccessEventHome copyWith({required bool canViewCurrentOccupancy}) {
+    return AccessEventHome(
+      membershipRole: membershipRole,
+      accessScope: accessScope,
+      operationalState: operationalState,
+      event: event,
+      brand: brand,
+      party: party,
+      place: place,
+      counters: counters,
+      recentHistoryPreview: recentHistoryPreview,
+      lastActivityAt: lastActivityAt,
+      canViewCurrentOccupancy: canViewCurrentOccupancy,
+    );
+  }
 }
 
 Map<String, dynamic> readMap(dynamic value) {
