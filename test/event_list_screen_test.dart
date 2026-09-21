@@ -7,6 +7,48 @@ import 'package:lema_access_app/src/providers/event_providers.dart';
 import 'package:lema_access_app/src/screens/event_list_screen.dart';
 
 void main() {
+  testWidgets('expands the code form from the empty events card', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [accessEventsProvider.overrideWith((ref) async => [])],
+        child: const MaterialApp(home: EventListScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Unirse con código'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TextFormField), findsOneWidget);
+    expect(find.text('Activar acceso'), findsOneWidget);
+  });
+
+  testWidgets('hides event occupancy without permission', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accessEventsProvider.overrideWith(
+            (ref) async => [
+              _eventSummary(
+                id: 'live',
+                name: 'Evento',
+                operationalState: 'live',
+              ),
+            ],
+          ),
+        ],
+        child: const MaterialApp(home: EventListScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 en curso'), findsOneWidget);
+    expect(find.text('0%'), findsNothing);
+    expect(find.text('0 / 10'), findsNothing);
+  });
+
   testWidgets('hides draft events and does not duplicate primary events', (
     tester,
   ) async {
@@ -32,12 +74,36 @@ void main() {
     expect(find.text('Evento Borrador'), findsNothing);
     expect(find.text('Evento TEST'), findsOneWidget);
     expect(find.text('Evento Futuro B'), findsOneWidget);
-    expect(find.textContaining('3 totales'), findsOneWidget);
+    expect(find.textContaining('en curso'), findsNothing);
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
     await tester.pumpAndSettle();
 
     expect(find.text('Evento Futuro C'), findsOneWidget);
+  });
+
+  testWidgets('shows a compact date for upcoming events', (tester) async {
+    final startsAt = DateTime(2026, 10, 3, 23);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accessEventsProvider.overrideWith(
+            (ref) async => [
+              _eventSummary(id: 'a', name: 'A'),
+              _eventSummary(id: 'b', name: 'B'),
+              _eventSummary(id: 'c', name: 'C', startTime: startsAt),
+            ],
+          ),
+        ],
+        child: const MaterialApp(home: EventListScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+
+    expect(find.text('03/10'), findsOneWidget);
   });
 }
 
@@ -45,6 +111,7 @@ AccessEventSummary _eventSummary({
   required String id,
   required String name,
   String operationalState = 'scheduled',
+  DateTime? startTime,
 }) {
   return AccessEventSummary(
     event: AccessEventRecord(
@@ -70,7 +137,7 @@ AccessEventSummary _eventSummary({
       name: name,
       poster: null,
       description: null,
-      startTime: null,
+      startTime: startTime,
       endTime: null,
       isArchived: false,
     ),
@@ -86,5 +153,6 @@ AccessEventSummary _eventSummary({
     pendingCheckInCount: 0,
     capacityTotal: 10,
     lastActivityAt: null,
+    canViewCurrentOccupancy: false,
   );
 }

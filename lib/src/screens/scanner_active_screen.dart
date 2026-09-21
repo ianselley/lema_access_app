@@ -10,6 +10,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../core/debug_log.dart';
 import '../controllers/history_controller.dart';
 import '../models/add_on_models.dart';
+import '../models/event_models.dart' as event_models;
 import '../models/history_models.dart';
 import '../models/scan_models.dart';
 import '../models/ticket_models.dart' as ticket_models;
@@ -302,12 +303,16 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
     }
   }
 
-  Future<void> _openHistory(String? eventId) async {
+  Future<void> _openHistory(
+    String? eventId, {
+    required bool showOccupancy,
+  }) async {
     setState(() => _isHistoryOpen = true);
     try {
       await showRecentHistoryBottomSheet(
         context,
         eventId: eventId,
+        showOccupancy: showOccupancy,
         onOpenTicketDetail: widget.onOpenTicketDetail,
       );
     } finally {
@@ -655,7 +660,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
     final ticket = entry.ticket;
 
     return _LastScanInfo(
-      eventId: ticket?.eventId ?? eventId,
+      eventId: eventId,
       titleLabel:
           ticket?.attendee.fullName ??
           entry.actor.displayName ??
@@ -671,6 +676,33 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
           : _historyTicketSelection(entry, ticket),
       resultSnapshot: historyResultNeedsExplanation(entry.resultCode)
           ? HistoryScanResultSnapshot.fromHistoryEntry(entry)
+          : null,
+    );
+  }
+
+  _LastScanInfo? _lastScanInfoFromEventHome(
+    String? eventId,
+    event_models.AccessEventHome? home,
+  ) {
+    final normalizedEventId = _normalizedEventId(eventId);
+    if (normalizedEventId == null ||
+        home == null ||
+        home.recentHistoryPreview.isEmpty) {
+      return null;
+    }
+
+    final item = home.recentHistoryPreview.first;
+    return _LastScanInfo(
+      eventId: normalizedEventId,
+      titleLabel: item.titleLabel,
+      subtitleLabel: item.subtitleLabel,
+      resultCode: item.resultCode ?? 'temporary_error',
+      hasPendingExtras:
+          item.ticket?.addOns.any((extra) => extra.remainingQuantity > 0) ??
+          false,
+      createdAt: item.createdAt,
+      resultSnapshot: historyResultNeedsExplanation(item.resultCode)
+          ? HistoryScanResultSnapshot.fromEventHistoryItem(item)
           : null,
     );
   }
@@ -963,12 +995,17 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
         : ref
               .watch(accessHistoryControllerProvider(currentEventId))
               .valueOrNull;
+    final eventHome = currentEventId == null
+        ? null
+        : ref.watch(accessEventHomeProvider(currentEventId)).valueOrNull;
+    final showOccupancy = currentEventId == null
+        ? false
+        : eventHome?.canViewCurrentOccupancy ?? false;
     final displayedLastScan = _resolveDisplayedLastScan(
       eventId: currentEventId,
-      historyLastScan: _lastScanInfoFromHistoryState(
-        currentEventId,
-        historyState,
-      ),
+      historyLastScan:
+          _lastScanInfoFromHistoryState(currentEventId, historyState) ??
+          _lastScanInfoFromEventHome(currentEventId, eventHome),
       optimisticLastScan: _lastScanInfo,
     );
     final parentNavigationScope = OperatorNavigationScope.maybeOf(context);
@@ -1325,7 +1362,10 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                       lastScan: displayedLastScan,
                       onOpenHistory: hasPersistentModal
                           ? null
-                          : () => _openHistory(currentEventId),
+                          : () => _openHistory(
+                              currentEventId,
+                              showOccupancy: showOccupancy,
+                            ),
                       onTapLastScan: hasPersistentModal
                           ? null
                           : () => _openLastScan(displayedLastScan),

@@ -310,6 +310,7 @@ class AccessEventSummary {
     required this.pendingCheckInCount,
     required this.capacityTotal,
     required this.lastActivityAt,
+    required this.canViewCurrentOccupancy,
   });
 
   factory AccessEventSummary.fromJson(Map<String, dynamic> json) {
@@ -326,6 +327,7 @@ class AccessEventSummary {
       pendingCheckInCount: readInt(json['pending_check_in_count']),
       capacityTotal: readInt(json['capacity_total']),
       lastActivityAt: readNullableDateTime(json['last_activity_at']),
+      canViewCurrentOccupancy: readBool(json['can_view_current_occupancy']),
     );
   }
 
@@ -341,6 +343,7 @@ class AccessEventSummary {
   final int pendingCheckInCount;
   final int capacityTotal;
   final DateTime? lastActivityAt;
+  final bool canViewCurrentOccupancy;
 }
 
 class AccessScannerInviteClaimResult {

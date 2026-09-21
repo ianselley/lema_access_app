@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lema_access_app/src/controllers/scan_controller.dart';
+import 'package:lema_access_app/src/models/event_models.dart' as event_models;
 import 'package:lema_access_app/src/models/scan_models.dart';
+import 'package:lema_access_app/src/providers/event_providers.dart';
 import 'package:lema_access_app/src/providers/scan_providers.dart';
 import 'package:lema_access_app/src/screens/scanner_active_screen.dart';
 import 'package:lema_access_app/src/theme/app_theme.dart';
@@ -181,6 +183,27 @@ void main() {
     },
   );
 
+  testWidgets('shows the event home latest activity while history loads', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accessScanControllerProvider.overrideWith(() => scanner),
+          accessCurrentEventIdProvider.overrideWith((ref) => 'event-1'),
+          accessEventHomeProvider.overrideWith(
+            (ref, eventId) async => _eventHomeWithHistory(),
+          ),
+        ],
+        child: const MaterialApp(home: ScannerActiveScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ana'), findsOneWidget);
+    expect(find.textContaining('ABC123'), findsOneWidget);
+  });
+
   testWidgets(
     'pending extras use one reservation name, guest count and close wording',
     (tester) async {
@@ -241,5 +264,73 @@ void main() {
       await tester.tap(find.text('No validar'));
       await tester.pumpAndSettle();
     },
+  );
+}
+
+event_models.AccessEventHome _eventHomeWithHistory() {
+  return event_models.AccessEventHome(
+    membershipRole: 'scanner',
+    accessScope: 'event_member',
+    operationalState: 'live',
+    event: const event_models.AccessEventRecord(
+      id: 'event-1',
+      status: 'published',
+      currency: 'EUR',
+      salesStartAt: null,
+      salesEndAt: null,
+      createdAt: null,
+      updatedAt: null,
+    ),
+    brand: const event_models.AccessBrand(
+      id: 'brand-1',
+      name: 'Marca',
+      username: null,
+      logoUrl: null,
+    ),
+    party: const event_models.AccessParty(
+      id: 'event-1',
+      name: 'Evento',
+      poster: null,
+      description: null,
+      startTime: null,
+      endTime: null,
+      isArchived: false,
+    ),
+    place: const event_models.AccessPlace(
+      id: null,
+      name: null,
+      city: null,
+      address: null,
+      timezone: null,
+    ),
+    counters: const event_models.AccessEventCounters(
+      issuedCount: 1,
+      checkedInCount: 1,
+      pendingCheckInCount: 0,
+      cancelledOrVoidedCount: 0,
+      capacityTotal: 1,
+      ticketTypeCount: 1,
+    ),
+    recentHistoryPreview: const [
+      event_models.AccessHistoryItem(
+        id: 'history-1',
+        createdAt: null,
+        resultCode: 'valid',
+        reasonCode: null,
+        source: 'scanner',
+        inputKind: 'code',
+        rawInput: 'ABC123',
+        normalizedInput: 'ABC123',
+        ticket: null,
+        actor: event_models.AccessActor(
+          userId: null,
+          profileId: null,
+          displayName: 'Ana',
+          username: null,
+        ),
+      ),
+    ],
+    lastActivityAt: null,
+    canViewCurrentOccupancy: false,
   );
 }

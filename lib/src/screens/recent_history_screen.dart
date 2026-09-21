@@ -21,6 +21,7 @@ import 'history_scan_result_screen.dart';
 Future<void> showRecentHistoryBottomSheet(
   BuildContext context, {
   String? eventId,
+  required bool showOccupancy,
   VoidCallback? onOpenTicketDetail,
 }) async {
   await showModalBottomSheet<void>(
@@ -29,6 +30,7 @@ Future<void> showRecentHistoryBottomSheet(
     backgroundColor: Colors.transparent,
     builder: (_) => _RecentHistorySheet(
       eventId: eventId,
+      showOccupancy: showOccupancy,
       onOpenTicketDetail: onOpenTicketDetail,
     ),
   );
@@ -39,9 +41,14 @@ Future<void> showRecentHistoryBottomSheet(
 // ---------------------------------------------------------------------------
 
 class _RecentHistorySheet extends ConsumerStatefulWidget {
-  const _RecentHistorySheet({this.eventId, this.onOpenTicketDetail});
+  const _RecentHistorySheet({
+    this.eventId,
+    required this.showOccupancy,
+    this.onOpenTicketDetail,
+  });
 
   final String? eventId;
+  final bool showOccupancy;
   final VoidCallback? onOpenTicketDetail;
 
   @override
@@ -159,6 +166,7 @@ class _RecentHistorySheetState extends ConsumerState<_RecentHistorySheet> {
                   data: (state) => _HistoryList(
                     state: state,
                     eventId: widget.eventId,
+                    showOccupancy: widget.showOccupancy,
                     scrollController: sheetScrollController,
                     onRefresh: _refresh,
                     onOpenTicketDetail: _openTicketDetail,
@@ -213,6 +221,7 @@ class _HistoryList extends StatelessWidget {
   const _HistoryList({
     required this.state,
     required this.eventId,
+    required this.showOccupancy,
     required this.scrollController,
     required this.onRefresh,
     required this.onOpenTicketDetail,
@@ -222,6 +231,7 @@ class _HistoryList extends StatelessWidget {
 
   final AccessHistoryState state;
   final String? eventId;
+  final bool showOccupancy;
   final ScrollController scrollController;
   final Future<void> Function() onRefresh;
   final void Function(AccessHistoryEntry) onOpenTicketDetail;
@@ -256,6 +266,7 @@ class _HistoryList extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
                 child: _Header(
                   eventId: eventId,
+                  showOccupancy: showOccupancy,
                   totalCount: state.totalCount,
                   summary: state.summary,
                 ),
@@ -377,11 +388,13 @@ AccessTicketSnapshot _mapHistoryTicket(AccessHistoryTicketSnapshot ticket) {
 class _Header extends StatelessWidget {
   const _Header({
     required this.eventId,
+    required this.showOccupancy,
     required this.totalCount,
     required this.summary,
   });
 
   final String? eventId;
+  final bool showOccupancy;
   final int totalCount;
   final AccessHistorySummary summary;
 
@@ -401,15 +414,17 @@ class _Header extends StatelessWidget {
           eventId == null ? 'Sin evento activo' : 'Actividad reciente',
           style: textTheme.displayMedium?.copyWith(color: AppColors.onSurface),
         ),
-        const SizedBox(height: 6),
-        Text(
-          eventId == null
-              ? 'Conecta un evento para ver registros.'
-              : '$totalCount registros · ${summary.validCount} válidos · ${summary.incidentCount} incidencias',
-          style: textTheme.bodyMedium?.copyWith(
-            color: AppColors.onSurfaceMuted,
+        if (eventId == null || showOccupancy) ...[
+          const SizedBox(height: 6),
+          Text(
+            eventId == null
+                ? 'Conecta un evento para ver registros.'
+                : '$totalCount registros · ${summary.validCount} válidos · ${summary.incidentCount} incidencias',
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurfaceMuted,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

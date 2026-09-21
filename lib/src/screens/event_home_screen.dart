@@ -69,11 +69,11 @@ class EventHomeScreen extends ConsumerWidget {
                       _TopHero(
                         eventName: home.displayName,
                         eventLocation: home.locationLabel,
+                        eventSchedule: home.scheduleLabel,
                         membershipLabel: home.membershipLabel,
                         statusLabel: home.statusLabel,
                         progressLabel: home.progressLabel,
                         capacityLabel: home.capacityLabel,
-                        checkedInCount: home.counters.checkedInCount,
                         pendingCount: home.counters.pendingCheckInCount,
                         progress: home.progress,
                         showCurrentOccupancy: home.canViewCurrentOccupancy,
@@ -86,6 +86,7 @@ class EventHomeScreen extends ConsumerWidget {
                           onPressed: () => showRecentHistoryBottomSheet(
                             context,
                             eventId: eventId,
+                            showOccupancy: home.canViewCurrentOccupancy,
                             onOpenTicketDetail: onOpenTicketDetail,
                           ),
                           child: const Text('Ver todo >'),
@@ -228,11 +229,11 @@ class _TopHero extends StatelessWidget {
   const _TopHero({
     required this.eventName,
     required this.eventLocation,
+    required this.eventSchedule,
     required this.membershipLabel,
     required this.statusLabel,
     required this.progressLabel,
     required this.capacityLabel,
-    required this.checkedInCount,
     required this.pendingCount,
     required this.progress,
     required this.showCurrentOccupancy,
@@ -240,11 +241,11 @@ class _TopHero extends StatelessWidget {
 
   final String eventName;
   final String eventLocation;
-  final String membershipLabel;
+  final String? eventSchedule;
+  final String? membershipLabel;
   final String statusLabel;
   final String progressLabel;
   final String capacityLabel;
-  final int checkedInCount;
   final int pendingCount;
   final double progress;
   final bool showCurrentOccupancy;
@@ -287,6 +288,15 @@ class _TopHero extends StatelessWidget {
                         color: AppColors.onSurfaceMuted,
                       ),
                     ),
+                    if (eventSchedule != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        eventSchedule!,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: AppColors.onSurfaceMuted,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -301,11 +311,12 @@ class _TopHero extends StatelessWidget {
                 label: statusLabel,
                 color: AppColors.primaryStrong,
               ),
-              LemaTag(
-                label: membershipLabel,
-                color: AppColors.surfaceHigh,
-                textColor: AppColors.onSurface,
-              ),
+              if (membershipLabel != null)
+                LemaTag(
+                  label: membershipLabel!,
+                  color: AppColors.surfaceHigh,
+                  textColor: AppColors.onSurface,
+                ),
             ],
           ),
           if (showCurrentOccupancy) ...[
@@ -324,7 +335,7 @@ class _TopHero extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '$checkedInCount accesos validados · $pendingCount pendientes · $capacityLabel',
+              '$pendingCount entradas por escanear · $capacityLabel',
               style: textTheme.bodyMedium?.copyWith(
                 color: AppColors.onSurfaceMuted,
               ),

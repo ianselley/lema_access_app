@@ -14,6 +14,12 @@ extension AccessEventSummaryUi on AccessEventSummary {
   String get locationLabel =>
       _joinNonEmpty([placeLabel, brandLabel], 'Sin ubicación');
 
+  String? get scheduleLabel =>
+      formatEventSchedule(party.startTime, party.endTime);
+
+  String? get compactScheduleLabel =>
+      formatEventDate(party.startTime ?? party.endTime);
+
   bool get isLive => operationalState == 'live';
 
   bool get isScheduled => operationalState == 'scheduled';
@@ -78,6 +84,9 @@ extension AccessEventHomeUi on AccessEventHome {
   String get locationLabel =>
       _joinNonEmpty([placeLabel, brandLabel], 'Sin ubicación');
 
+  String? get scheduleLabel =>
+      formatEventSchedule(party.startTime, party.endTime);
+
   bool get isLive => operationalState == 'live';
 
   bool get isScheduled => operationalState == 'scheduled';
@@ -120,7 +129,7 @@ extension AccessEventHomeUi on AccessEventHome {
     }
   }
 
-  String get membershipLabel {
+  String? get membershipLabel {
     switch (membershipRole) {
       case 'event_member':
         return 'Miembro del evento';
@@ -129,7 +138,7 @@ extension AccessEventHomeUi on AccessEventHome {
       case 'brand_owner':
         return 'Propietario de marca';
       default:
-        return 'Sin rol reconocido';
+        return null;
     }
   }
 }
@@ -311,6 +320,42 @@ String formatRelativeTime(DateTime? dateTime) {
     return 'Hace ${diff.inHours} h';
   }
   return 'Hace ${diff.inDays} d';
+}
+
+String? formatEventSchedule(DateTime? startsAt, DateTime? endsAt) {
+  if (startsAt == null && endsAt == null) return null;
+  if (startsAt == null) return formatEventDateTime(endsAt!);
+  if (endsAt == null) return formatEventDateTime(startsAt);
+
+  final endIsWithin24Hours =
+      !endsAt.isBefore(startsAt) &&
+      endsAt.difference(startsAt) <= const Duration(hours: 24);
+  final endLabel = endIsWithin24Hours
+      ? formatEventTime(endsAt)
+      : formatEventDateTime(endsAt);
+  return '${formatEventDateTime(startsAt)} - $endLabel';
+}
+
+String? formatEventDate(DateTime? value) {
+  if (value == null) return null;
+  final local = value.toLocal();
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final date = DateTime(local.year, local.month, local.day);
+  final isWithinNextYear =
+      !date.isBefore(today) &&
+      !date.isAfter(today.add(const Duration(days: 365)));
+  final dayAndMonth =
+      '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}';
+  return isWithinNextYear ? dayAndMonth : '$dayAndMonth/${local.year}';
+}
+
+String formatEventDateTime(DateTime value) =>
+    '${formatEventDate(value)} · ${formatEventTime(value)}';
+
+String formatEventTime(DateTime value) {
+  final local = value.toLocal();
+  return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
 }
 
 String _joinNonEmpty(List<String> values, String fallback) {

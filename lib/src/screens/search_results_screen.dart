@@ -41,7 +41,7 @@ class SearchResultsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text('Buscar ticket', style: textTheme.displayMedium),
-              const SizedBox(height: 8),
+              const SizedBox(height: 18),
               if (!hasEventContext || !hasQuery)
                 _ContextNotice(
                   title: !hasEventContext
@@ -52,16 +52,58 @@ class SearchResultsScreen extends ConsumerWidget {
                       : 'Introduce una consulta para continuar.',
                   accent: AppColors.warning,
                 )
-              else
+              else ...[
+                const _TicketStatusFilter(),
+                const SizedBox(height: 16),
                 _ResultsContent(
                   query: query,
                   onOpenTicketDetail: onOpenTicketDetail,
                 ),
+              ],
               const OperatorShellBottomSpacer(),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _TicketStatusFilter extends ConsumerWidget {
+  const _TicketStatusFilter();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final checkedIn = ref.watch(accessManualSearchCheckedInProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Estado del ticket',
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        const SizedBox(height: 8),
+        SegmentedButton<bool>(
+          expandedInsets: EdgeInsets.zero,
+          segments: const [
+            ButtonSegment(
+              value: false,
+              label: Text('Pendientes'),
+              icon: Icon(Icons.schedule_rounded),
+            ),
+            ButtonSegment(
+              value: true,
+              label: Text('Ya escaneados'),
+              icon: Icon(Icons.check_circle_outline),
+            ),
+          ],
+          selected: {checkedIn},
+          onSelectionChanged: (selection) =>
+              ref.read(accessManualSearchCheckedInProvider.notifier).state =
+                  selection.first,
+        ),
+      ],
     );
   }
 }

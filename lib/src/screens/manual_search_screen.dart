@@ -57,7 +57,6 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
     final hasQuery = _searchController.text.trim().isNotEmpty;
     final eventId = ref.watch(accessCurrentEventIdProvider);
     final hasEventContext = eventId != null && eventId.trim().isNotEmpty;
-    final checkedIn = ref.watch(accessManualSearchCheckedInProvider);
     final bottomSpacerHeight = OperatorShellScope.maybeOf(context) == null
         ? 0.0
         : OperatorShellScope.bottomNavigationOverlayHeight;
@@ -85,21 +84,60 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
                         Text('Buscar ticket', style: textTheme.displayMedium),
                         const SizedBox(height: 6),
                         Text(
-                          'Código, pedido, email, teléfono o nombre',
+                          'Encuentra una entrada por sus datos',
                           style: textTheme.bodyMedium?.copyWith(
                             color: AppColors.onSurfaceMuted,
                           ),
                         ),
                         const SizedBox(height: 18),
                         LemaPanel(
-                          color: AppColors.surfaceHighest,
-                          borderColor: AppColors.outlineVariant.withValues(
-                            alpha: 0.18,
+                          color: AppColors.surfaceLow,
+                          borderColor: AppColors.primary.withValues(
+                            alpha: 0.22,
                           ),
                           padding: const EdgeInsets.all(20),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.12,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(
+                                      Icons.confirmation_number_outlined,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Datos del ticket',
+                                          style: textTheme.titleLarge,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Busca dentro del evento activo',
+                                          style: textTheme.bodyMedium?.copyWith(
+                                            color: AppColors.onSurfaceMuted,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 18),
                               TextField(
                                 controller: _searchController,
                                 textInputAction: TextInputAction.search,
@@ -109,36 +147,28 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
                                 enableSuggestions: false,
                                 smartDashesType: SmartDashesType.disabled,
                                 smartQuotesType: SmartQuotesType.disabled,
-                                style: textTheme.bodyLarge?.copyWith(
-                                  color: AppColors.primary,
-                                ),
-                                decoration: const InputDecoration(
-                                  labelText: 'Consulta',
-                                  hintText:
-                                      'Código, pedido, email, teléfono o nombre',
-                                  prefixIcon: Icon(Icons.search_rounded),
+                                style: textTheme.bodyLarge,
+                                decoration: InputDecoration(
+                                  labelText:
+                                      'Nombre, contacto, pedido o código',
+                                  hintText: 'Ej. Ana García o ABC123',
+                                  prefixIcon: const Icon(
+                                    Icons.search_rounded,
+                                    color: AppColors.primary,
+                                  ),
+                                  suffixIcon: hasQuery
+                                      ? IconButton(
+                                          tooltip: 'Borrar búsqueda',
+                                          onPressed: () {
+                                            _searchController.clear();
+                                            setState(() {});
+                                          },
+                                          icon: const Icon(Icons.close_rounded),
+                                        )
+                                      : null,
                                 ),
                                 onChanged: (_) => setState(() {}),
                                 onSubmitted: (_) => _runSearch(),
-                              ),
-                              const SizedBox(height: 8),
-                              SwitchListTile.adaptive(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  checkedIn
-                                      ? 'Tickets escaneados'
-                                      : 'Tickets sin escanear',
-                                  style: textTheme.bodyLarge,
-                                ),
-                                value: checkedIn,
-                                onChanged: (value) =>
-                                    ref
-                                            .read(
-                                              accessManualSearchCheckedInProvider
-                                                  .notifier,
-                                            )
-                                            .state =
-                                        value,
                               ),
                               if (!hasEventContext) ...[
                                 const SizedBox(height: 14),
@@ -150,8 +180,8 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
                               ],
                               const SizedBox(height: 16),
                               LemaPrimaryButton(
-                                label: 'Buscar',
-                                icon: Icons.manage_search_rounded,
+                                label: 'Ver resultados',
+                                icon: Icons.arrow_forward_rounded,
                                 onPressed: hasQuery && hasEventContext
                                     ? _runSearch
                                     : null,

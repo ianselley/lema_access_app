@@ -11,14 +11,21 @@ import '../widgets/join_with_code_sheet.dart';
 import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
 
-class EventListScreen extends ConsumerWidget {
+class EventListScreen extends ConsumerStatefulWidget {
   const EventListScreen({super.key, this.onOpenEvent, this.onOpenProfile});
 
   final ValueChanged<String>? onOpenEvent;
   final VoidCallback? onOpenProfile;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<EventListScreen> createState() => _EventListScreenState();
+}
+
+class _EventListScreenState extends ConsumerState<EventListScreen> {
+  var _isJoinWithCodeExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
     final asyncEvents = ref.watch(accessEventsProvider);
 
     return asyncEvents.when(
@@ -45,7 +52,7 @@ class EventListScreen extends ConsumerWidget {
           body: _EventsErrorState(
             error: error,
             onRetry: () => ref.invalidate(accessEventsProvider),
-            onOpenProfile: onOpenProfile,
+            onOpenProfile: widget.onOpenProfile,
           ),
         );
       },
@@ -72,11 +79,6 @@ class EventListScreen extends ConsumerWidget {
             )
             .take(3)
             .toList();
-        final pendingCount = visibleEvents.fold<int>(
-          0,
-          (sum, event) => sum + event.pendingCheckInCount,
-        );
-
         return LemaScaffold(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
           showAutomaticBackButton: false,
@@ -91,10 +93,8 @@ class EventListScreen extends ConsumerWidget {
               slivers: [
                 SliverToBoxAdapter(
                   child: _Header(
-                    totalEvents: visibleEvents.length,
                     liveEvents: liveEvents.length,
-                    pendingCount: pendingCount,
-                    onOpenProfile: onOpenProfile,
+                    onOpenProfile: widget.onOpenProfile,
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 28)),
@@ -113,8 +113,11 @@ class EventListScreen extends ConsumerWidget {
                   child: _EventSectionGrid(
                     events: primaryEvents,
                     emptyLabel: 'No hay eventos disponibles.',
-                    onOpenEvent: onOpenEvent,
-                    onJoinWithCode: () => showJoinWithCodeSheet(context),
+                    onOpenEvent: widget.onOpenEvent,
+                    onJoinWithCode: () {
+                      setState(() => _isJoinWithCodeExpanded = true);
+                    },
+                    isJoinWithCodeExpanded: _isJoinWithCodeExpanded,
                     highlightFirst: true,
                   ),
                 ),
@@ -137,7 +140,7 @@ class EventListScreen extends ConsumerWidget {
                         child: _CompactEventRow(
                           event: event,
                           icon: Icons.event_outlined,
-                          onTap: () => onOpenEvent?.call(event.event.id),
+                          onTap: () => widget.onOpenEvent?.call(event.event.id),
                         ),
                       );
                     }, childCount: scheduledEvents.length),
@@ -153,16 +156,9 @@ class EventListScreen extends ConsumerWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({
-    required this.totalEvents,
-    required this.liveEvents,
-    required this.pendingCount,
-    required this.onOpenProfile,
-  });
+  const _Header({required this.liveEvents, required this.onOpenProfile});
 
-  final int totalEvents;
   final int liveEvents;
-  final int pendingCount;
   final VoidCallback? onOpenProfile;
 
   @override
@@ -178,12 +174,13 @@ class _Header extends StatelessWidget {
             children: [
               Text('Tus eventos', style: textTheme.displayLarge),
               const SizedBox(height: 8),
-              Text(
-                '$liveEvents en curso · $pendingCount pendientes · $totalEvents totales',
-                style: textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurfaceMuted,
+              if (liveEvents > 0)
+                Text(
+                  '$liveEvents en curso',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurfaceMuted,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -243,6 +240,7 @@ class _EventSectionGrid extends StatelessWidget {
     required this.emptyLabel,
     required this.onOpenEvent,
     required this.onJoinWithCode,
+    required this.isJoinWithCodeExpanded,
     required this.highlightFirst,
   });
 
@@ -250,6 +248,7 @@ class _EventSectionGrid extends StatelessWidget {
   final String emptyLabel;
   final ValueChanged<String>? onOpenEvent;
   final VoidCallback? onJoinWithCode;
+  final bool isJoinWithCodeExpanded;
   final bool highlightFirst;
 
   @override
@@ -259,6 +258,7 @@ class _EventSectionGrid extends StatelessWidget {
         label: emptyLabel,
         detail: 'No hay nada que operar en este momento.',
         onJoinWithCode: onJoinWithCode,
+        isJoinWithCodeExpanded: isJoinWithCodeExpanded,
       );
     }
 
@@ -317,6 +317,15 @@ class _ActiveEventCard extends StatelessWidget {
                         color: AppColors.onSurfaceMuted,
                       ),
                     ),
+                    if (event.scheduleLabel case final schedule?) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        schedule,
+                        style: textTheme.labelMedium?.copyWith(
+                          color: AppColors.onSurfaceMuted,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -324,24 +333,26 @@ class _ActiveEventCard extends StatelessWidget {
               LemaStatusPill(label: event.statusLabel, color: accent),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            event.progressLabel,
-            style: textTheme.titleLarge?.copyWith(color: AppColors.onSurface),
-          ),
-          const SizedBox(height: 8),
-          LemaProgressBar(
-            value: event.progress,
-            color: accent,
-            background: AppColors.surfaceLow,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            event.capacityLabel,
-            style: textTheme.labelMedium?.copyWith(
-              color: AppColors.onSurfaceMuted,
+          if (event.canViewCurrentOccupancy) ...[
+            const SizedBox(height: 16),
+            Text(
+              event.progressLabel,
+              style: textTheme.titleLarge?.copyWith(color: AppColors.onSurface),
             ),
-          ),
+            const SizedBox(height: 8),
+            LemaProgressBar(
+              value: event.progress,
+              color: accent,
+              background: AppColors.surfaceLow,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              event.capacityLabel,
+              style: textTheme.labelMedium?.copyWith(
+                color: AppColors.onSurfaceMuted,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -387,7 +398,7 @@ class _CompactEventRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  event.locationLabel,
+                  event.compactScheduleLabel ?? event.locationLabel,
                   style: textTheme.labelSmall?.copyWith(
                     color: AppColors.onSurfaceMuted,
                   ),
@@ -448,38 +459,53 @@ class _EmptySectionCard extends StatelessWidget {
     required this.label,
     required this.detail,
     this.onJoinWithCode,
+    this.isJoinWithCodeExpanded = false,
   });
 
   final String label;
   final String detail;
   final VoidCallback? onJoinWithCode;
+  final bool isJoinWithCodeExpanded;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return LemaPanel(
-      color: AppColors.surfaceLow,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: textTheme.titleLarge),
-          const SizedBox(height: 6),
-          Text(
-            detail,
-            style: textTheme.bodyMedium?.copyWith(
-              color: AppColors.onSurfaceMuted,
-            ),
-          ),
-          if (onJoinWithCode != null) ...[
-            const SizedBox(height: 14),
-            LemaPrimaryButton(
-              label: 'Unirse con código',
-              icon: Icons.vpn_key_outlined,
-              onPressed: onJoinWithCode,
-            ),
-          ],
-        ],
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 180),
+        child: isJoinWithCodeExpanded
+            ? const JoinWithCodePanel(
+                key: ValueKey('join-with-code-panel'),
+                autofocus: true,
+              )
+            : LemaPanel(
+                key: const ValueKey('empty-events-card'),
+                color: AppColors.surfaceLow,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: textTheme.titleLarge),
+                    const SizedBox(height: 6),
+                    Text(
+                      detail,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: AppColors.onSurfaceMuted,
+                      ),
+                    ),
+                    if (onJoinWithCode != null) ...[
+                      const SizedBox(height: 14),
+                      LemaPrimaryButton(
+                        label: 'Unirse con código',
+                        icon: Icons.vpn_key_outlined,
+                        onPressed: onJoinWithCode,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
       ),
     );
   }
