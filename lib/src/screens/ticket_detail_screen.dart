@@ -14,9 +14,7 @@ import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
 
 class TicketDetailScreen extends ConsumerWidget {
-  const TicketDetailScreen({super.key, this.onConfirmManualAccess});
-
-  final VoidCallback? onConfirmManualAccess;
+  const TicketDetailScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -55,6 +53,8 @@ class TicketDetailScreen extends ConsumerWidget {
                     detail: detail,
                     actionState: actionState,
                     onConfirm: () async {
+                      final confirmed = await _confirmAccessAction(context);
+                      if (!context.mounted || !confirmed) return;
                       await ref
                           .read(accessTicketCheckInControllerProvider.notifier)
                           .confirmSelectedTicket();
@@ -63,88 +63,15 @@ class TicketDetailScreen extends ConsumerWidget {
                                   .read(accessTicketCheckInControllerProvider)
                                   .status ==
                               AccessActionStatus.success) {
-                        onConfirmManualAccess?.call();
+                        ref.invalidate(accessSelectedTicketDetailProvider);
                       }
                     },
                     onUndo: () async {
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => Dialog(
-                          backgroundColor: Colors.transparent,
-                          insetPadding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: AppColors.outlineVariant.withValues(
-                                  alpha: 0.45,
-                                ),
-                              ),
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.error.withValues(
-                                      alpha: 0.14,
-                                    ),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(
-                                    Icons.undo_rounded,
-                                    color: AppColors.error,
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                Text(
-                                  '¿Desmarcar acceso?',
-                                  style: Theme.of(context).textTheme.titleLarge,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Podrás volver a marcarlo más tarde.',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: AppColors.onSurfaceMuted,
-                                      ),
-                                ),
-                                const SizedBox(height: 24),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: OutlinedButton(
-                                        onPressed: () =>
-                                            Navigator.pop(context, false),
-                                        child: const Text('Cancelar'),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: ElevatedButton(
-                                        onPressed: () =>
-                                            Navigator.pop(context, true),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppColors.error,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                        child: const Text('Desmarcar'),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                      final confirmed = await _confirmAccessAction(
+                        context,
+                        undo: true,
                       );
-                      if (context.mounted && confirmed == true) {
+                      if (context.mounted && confirmed) {
                         await ref
                             .read(
                               accessTicketCheckInControllerProvider.notifier,
@@ -190,6 +117,86 @@ class TicketDetailScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+Future<bool> _confirmAccessAction(
+  BuildContext context, {
+  bool undo = false,
+}) async {
+  return await showDialog<bool>(
+        context: context,
+        builder: (context) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.outlineVariant.withValues(alpha: 0.45),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: (undo ? AppColors.error : AppColors.success)
+                        .withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    undo ? Icons.undo_rounded : Icons.verified_user_outlined,
+                    color: undo ? AppColors.error : AppColors.success,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  undo ? '¿Desmarcar acceso?' : '¿Confirmar acceso manual?',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  undo
+                      ? 'Podrás volver a marcarlo más tarde.'
+                      : 'Esta entrada quedará marcada como usada.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurfaceMuted,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancelar'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: undo
+                              ? AppColors.error
+                              : AppColors.success,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: Text(undo ? 'Desmarcar' : 'Confirmar'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ) ??
+      false;
 }
 
 class _DetailContent extends StatelessWidget {

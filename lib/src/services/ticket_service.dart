@@ -27,6 +27,46 @@ class AccessTicketService {
     return _readEnvelope(response, AccessTicketSearchPage.fromJson);
   }
 
+  Future<AccessTicketBrowsePage> listEventTickets({
+    required String eventId,
+    required String query,
+    required bool? checkedIn,
+    required bool vip,
+    required int offset,
+    int limit = 20,
+    bool sortByIssuedAt = false,
+  }) async {
+    final response = await _client.call(
+      'access_list_event_tickets',
+      params: {
+        'p_event_id': eventId,
+        'p_query': query,
+        'p_checked_in': checkedIn,
+        'p_vip': vip,
+        'p_limit': limit,
+        'p_offset': offset,
+        'p_sort_by_issued_at': sortByIssuedAt,
+      },
+    );
+    return _readEnvelope(response, AccessTicketBrowsePage.fromJson);
+  }
+
+  Future<AccessTicketBrowseCount> countEventTickets({
+    required String eventId,
+    required String query,
+    required bool? checkedIn,
+  }) async {
+    final response = await _client.call(
+      'access_count_event_tickets',
+      params: {
+        'p_event_id': eventId,
+        'p_query': query,
+        'p_checked_in': checkedIn,
+      },
+    );
+    return _readEnvelope(response, AccessTicketBrowseCount.fromJson);
+  }
+
   Future<AccessTicketDetail> getTicketDetail({
     required String eventId,
     required String ticketId,

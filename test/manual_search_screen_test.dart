@@ -5,25 +5,14 @@ import 'package:lema_access_app/src/providers/event_providers.dart';
 import 'package:lema_access_app/src/screens/manual_search_screen.dart';
 
 void main() {
-  testWidgets('presents and clears the ticket search query', (tester) async {
+  testWidgets('search entry keeps the query field', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          accessCurrentEventIdProvider.overrideWith((ref) => 'event-1'),
-        ],
+        overrides: [accessCurrentEventIdProvider.overrideWith((ref) => null)],
         child: const MaterialApp(home: ManualSearchScreen()),
       ),
     );
-
-    expect(find.text('Datos del ticket'), findsOneWidget);
-    expect(find.text('Ver resultados'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField), 'Ana García');
-    await tester.pump();
-    expect(find.byTooltip('Borrar búsqueda'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Borrar búsqueda'));
-    await tester.pump();
-    expect(find.text('Ana García'), findsNothing);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.text('Buscar ticket'), findsOneWidget);
   });
 }

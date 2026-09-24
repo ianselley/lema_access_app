@@ -7,14 +7,42 @@ import '../models/ticket_models.dart';
 import '../services/ticket_service.dart';
 import 'activity_refresh_providers.dart';
 import 'auth_providers.dart';
-import 'event_providers.dart';
 
 final accessManualSearchQueryProvider = StateProvider<String>((ref) => '');
-final accessManualSearchCheckedInProvider = StateProvider<bool>((ref) => false);
 
 final accessTicketServiceProvider = Provider<AccessTicketService>((ref) {
   return AccessTicketService(ref.watch(accessRpcClientProvider));
 });
+
+final accessRecentEventTicketsProvider = FutureProvider.autoDispose
+    .family<
+      ({AccessTicketBrowsePage vip, AccessTicketBrowsePage normal}),
+      String
+    >((ref, eventId) async {
+      ref.watch(accessActivityRefreshTickProvider);
+      final service = ref.watch(accessTicketServiceProvider);
+      final pages = await Future.wait([
+        service.listEventTickets(
+          eventId: eventId,
+          query: '',
+          checkedIn: null,
+          vip: true,
+          offset: 0,
+          limit: 3,
+          sortByIssuedAt: true,
+        ),
+        service.listEventTickets(
+          eventId: eventId,
+          query: '',
+          checkedIn: null,
+          vip: false,
+          offset: 0,
+          limit: 3,
+          sortByIssuedAt: true,
+        ),
+      ]);
+      return (vip: pages[0], normal: pages[1]);
+    });
 
 final accessSelectedTicketProvider = StateProvider<AccessTicketSelection?>(
   (ref) => null,
@@ -22,36 +50,6 @@ final accessSelectedTicketProvider = StateProvider<AccessTicketSelection?>(
 
 final accessLatestCheckInOutcomeProvider =
     StateProvider<AccessTicketCheckInOutcome?>((ref) => null);
-
-final accessTicketSearchResultsProvider =
-    FutureProvider.autoDispose<AccessTicketSearchPage>((ref) async {
-      ref.watch(accessActivityRefreshTickProvider);
-      final eventId = ref.watch(accessCurrentEventIdProvider);
-      final query = ref.watch(accessManualSearchQueryProvider).trim();
-      final checkedIn = ref.watch(accessManualSearchCheckedInProvider);
-
-      if (eventId == null || eventId.trim().isEmpty) {
-        throw const AccessRpcException(
-          code: 'MISSING_EVENT_CONTEXT',
-          message: 'An active event is required to search tickets.',
-        );
-      }
-
-      if (query.isEmpty) {
-        throw const AccessRpcException(
-          code: 'INVALID_QUERY',
-          message: 'A non-empty search query is required.',
-        );
-      }
-
-      return ref
-          .watch(accessTicketServiceProvider)
-          .searchEventTickets(
-            eventId: eventId,
-            query: query,
-            checkedIn: checkedIn,
-          );
-    });
 
 final accessSelectedTicketDetailProvider =
     FutureProvider.autoDispose<AccessTicketDetail>((ref) async {

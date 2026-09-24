@@ -11,12 +11,43 @@ void main() {
     expect(EnvConfig.staging.accessDeepLinkHost, 'staging.lema.club');
   });
 
-  test('only enables database switching for LEMA accounts outside local', () {
-    expect(EnvConfig.canSwitchDatabaseFor('admin@lema.club'), isTrue);
-    expect(EnvConfig.canSwitchDatabaseFor('admin@example.com'), isFalse);
+  test('allows anyone to leave staging, but only LEMA accounts to enter it', () {
+    expect(
+      EnvConfig.canSwitchDatabaseForEnvironment(
+        AppEnvironment.prod,
+        AppEnvironment.staging,
+        'user@example.com',
+      ),
+      isTrue,
+    );
+    expect(
+      EnvConfig.canSwitchDatabaseForEnvironment(
+        AppEnvironment.prod,
+        AppEnvironment.staging,
+        null,
+      ),
+      isFalse,
+    );
+    expect(
+      EnvConfig.canSwitchDatabaseForEnvironment(
+        AppEnvironment.prod,
+        AppEnvironment.prod,
+        'admin@lema.club',
+      ),
+      isTrue,
+    );
+    expect(
+      EnvConfig.canSwitchDatabaseForEnvironment(
+        AppEnvironment.prod,
+        AppEnvironment.prod,
+        'user@example.com',
+      ),
+      isFalse,
+    );
     expect(
       EnvConfig.canSwitchDatabaseForEnvironment(
         AppEnvironment.local,
+        AppEnvironment.staging,
         'admin@lema.club',
       ),
       isFalse,

@@ -12,18 +12,21 @@ import '../widgets/lema_components.dart';
 import '../widgets/lema_scaffold.dart';
 import 'history_scan_result_screen.dart';
 import 'recent_history_screen.dart';
+import 'search_results_screen.dart';
 
 class EventHomeScreen extends ConsumerWidget {
   const EventHomeScreen({
     super.key,
     required this.eventId,
     this.onOpenScanner,
+    this.onOpenSearch,
     this.onOpenTicketDetail,
     this.bottomOverlay,
   });
 
   final String eventId;
   final VoidCallback? onOpenScanner;
+  final VoidCallback? onOpenSearch;
   final VoidCallback? onOpenTicketDetail;
   final Widget? bottomOverlay;
 
@@ -58,6 +61,7 @@ class EventHomeScreen extends ConsumerWidget {
               RefreshIndicator(
                 onRefresh: () async {
                   ref.invalidate(accessEventHomeProvider(eventId));
+                  ref.invalidate(accessRecentEventTicketsProvider(eventId));
                 },
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(
@@ -70,15 +74,22 @@ class EventHomeScreen extends ConsumerWidget {
                         eventName: home.displayName,
                         eventLocation: home.locationLabel,
                         eventSchedule: home.scheduleLabel,
-                        membershipLabel: home.membershipLabel,
                         statusLabel: home.statusLabel,
                         progressLabel: home.progressLabel,
-                        capacityLabel: home.capacityLabel,
-                        pendingCount: home.counters.pendingCheckInCount,
+                        checkedInCount: home.counters.checkedInCount,
+                        capacityTotal: home.counters.capacityTotal,
                         progress: home.progress,
                         showCurrentOccupancy: home.canViewCurrentOccupancy,
                       ),
                       const SizedBox(height: 24),
+                      if (home.canViewCurrentOccupancy) ...[
+                        _RecentTicketsSection(
+                          eventId: eventId,
+                          onOpenSearch: onOpenSearch,
+                          onOpenTicketDetail: onOpenTicketDetail,
+                        ),
+                        const SizedBox(height: 24),
+                      ],
                       LemaSectionHeading(
                         kicker: 'Actividad',
                         title: 'Últimos accesos',
@@ -133,6 +144,125 @@ class EventHomeScreen extends ConsumerWidget {
       },
     );
   }
+}
+
+class _RecentTicketsSection extends ConsumerWidget {
+  const _RecentTicketsSection({
+    required this.eventId,
+    required this.onOpenSearch,
+    required this.onOpenTicketDetail,
+  });
+
+  final String eventId;
+  final VoidCallback? onOpenSearch;
+  final VoidCallback? onOpenTicketDetail;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recent = ref.watch(accessRecentEventTicketsProvider(eventId));
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LemaSectionHeading(
+          kicker: 'Entradas',
+          title: 'Últimos tickets',
+          trailing: TextButton(
+            onPressed: onOpenSearch == null
+                ? null
+                : () {
+                    ref.read(accessManualSearchQueryProvider.notifier).state =
+                        '';
+                    onOpenSearch!();
+                  },
+            child: const Text('Ver más >'),
+          ),
+        ),
+        const SizedBox(height: 14),
+        recent.when(
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(strokeWidth: 2.4),
+            ),
+          ),
+          error: (error, stackTrace) => TextButton(
+            onPressed: () =>
+                ref.invalidate(accessRecentEventTicketsProvider(eventId)),
+            child: const Text('No se pudieron cargar los tickets. Reintentar'),
+          ),
+          data: (pages) {
+            final vip = pages.vip.items;
+            final normal = pages.normal.items;
+            if (vip.isEmpty && normal.isEmpty) {
+              return Text(
+                'Todavía no hay tickets.',
+                style: textTheme.bodyMedium,
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (vip.isNotEmpty) ...[
+                  Text('VIP', style: textTheme.titleLarge),
+                  const SizedBox(height: 10),
+                  for (final item in vip.take(3)) ...[
+                    AccessTicketResultCard(
+                      item: item,
+                      onTap: () => _openRecentTicket(
+                        ref,
+                        eventId,
+                        item,
+                        onOpenTicketDetail,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ],
+                if (normal.isNotEmpty) ...[
+                  Text('Entradas', style: textTheme.titleLarge),
+                  const SizedBox(height: 10),
+                  for (final item in normal.take(3)) ...[
+                    AccessTicketResultCard(
+                      item: item,
+                      onTap: () => _openRecentTicket(
+                        ref,
+                        eventId,
+                        item,
+                        onOpenTicketDetail,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ],
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+void _openRecentTicket(
+  WidgetRef ref,
+  String eventId,
+  tm.AccessTicketSearchItem item,
+  VoidCallback? onOpenTicketDetail,
+) {
+  ref
+      .read(accessSelectedTicketProvider.notifier)
+      .state = tm.AccessTicketSelection(
+    eventId: eventId,
+    ticketId: item.ticket.id,
+    query: '',
+    matchReason: item.matchReason,
+    ticket: item.ticket,
+    contextLabel: 'Últimos tickets',
+  );
+  ref.read(accessLatestCheckInOutcomeProvider.notifier).state = null;
+  onOpenTicketDetail?.call();
 }
 
 void _openHistoryEntry(
@@ -230,11 +360,10 @@ class _TopHero extends StatelessWidget {
     required this.eventName,
     required this.eventLocation,
     required this.eventSchedule,
-    required this.membershipLabel,
     required this.statusLabel,
     required this.progressLabel,
-    required this.capacityLabel,
-    required this.pendingCount,
+    required this.checkedInCount,
+    required this.capacityTotal,
     required this.progress,
     required this.showCurrentOccupancy,
   });
@@ -242,11 +371,10 @@ class _TopHero extends StatelessWidget {
   final String eventName;
   final String eventLocation;
   final String? eventSchedule;
-  final String? membershipLabel;
   final String statusLabel;
   final String progressLabel;
-  final String capacityLabel;
-  final int pendingCount;
+  final int checkedInCount;
+  final int capacityTotal;
   final double progress;
   final bool showCurrentOccupancy;
 
@@ -265,77 +393,82 @@ class _TopHero extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'EVENTO ACTIVO',
-                      style: textTheme.labelSmall?.copyWith(
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      eventName,
-                      style: textTheme.displayLarge?.copyWith(
-                        color: AppColors.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      eventLocation,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: AppColors.onSurfaceMuted,
-                      ),
-                    ),
-                    if (eventSchedule != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        eventSchedule!,
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: AppColors.onSurfaceMuted,
-                        ),
-                      ),
-                    ],
-                  ],
+                child: Text(
+                  eventName,
+                  style: textTheme.displayMedium?.copyWith(
+                    color: AppColors.onSurface,
+                  ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
+              const SizedBox(width: 12),
               LemaStatusPill(
                 label: statusLabel,
                 color: AppColors.primaryStrong,
               ),
-              if (membershipLabel != null)
-                LemaTag(
-                  label: membershipLabel!,
-                  color: AppColors.surfaceHigh,
-                  textColor: AppColors.onSurface,
-                ),
             ],
           ),
+          const SizedBox(height: 8),
+          Text(
+            eventLocation,
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurfaceMuted,
+            ),
+          ),
+          if (eventSchedule != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              eventSchedule!,
+              style: textTheme.bodyLarge?.copyWith(color: AppColors.onSurface),
+            ),
+          ],
           if (showCurrentOccupancy) ...[
             const SizedBox(height: 18),
-            Text(
-              progressLabel,
-              style: textTheme.headlineLarge?.copyWith(
-                color: AppColors.primary,
+            Divider(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('$checkedInCount', style: textTheme.headlineLarge),
+                      const SizedBox(height: 4),
+                      Text('Accesos validados', style: textTheme.bodyMedium),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        capacityTotal > 0 ? progressLabel : '—',
+                        style: textTheme.headlineLarge?.copyWith(
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text('Ocupación del aforo', style: textTheme.bodyMedium),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (capacityTotal > 0) ...[
+              const SizedBox(height: 12),
+              LemaProgressBar(
+                value: progress,
+                color: AppColors.primaryStrong,
+                background: AppColors.surfaceHigh,
               ),
-            ),
-            const SizedBox(height: 10),
-            LemaProgressBar(
-              value: progress,
-              color: AppColors.primaryStrong,
-              background: AppColors.backgroundAlt,
-            ),
-            const SizedBox(height: 12),
+            ],
+            const SizedBox(height: 8),
             Text(
-              '$pendingCount entradas por escanear · $capacityLabel',
+              capacityTotal > 0
+                  ? '$checkedInCount de $capacityTotal plazas · QR y accesos manuales'
+                  : 'Aforo sin definir · incluye accesos por QR y manuales',
               style: textTheme.bodyMedium?.copyWith(
                 color: AppColors.onSurfaceMuted,
               ),

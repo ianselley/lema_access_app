@@ -41,7 +41,7 @@ class EnvConfig {
 
   static const EnvConfig local = EnvConfig(
     environment: AppEnvironment.local,
-    supabaseUrl: 'http://127.0.0.1:54321',
+    supabaseUrl: 'http://192.168.1.34:54321',
     supabaseAnonKey: 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH',
   );
 
@@ -92,14 +92,21 @@ class EnvConfig {
       _buildEnvironment != AppEnvironment.local;
 
   static bool canSwitchDatabaseFor(String? email) =>
-      canSwitchDatabaseForEnvironment(_buildEnvironment, email);
+      canSwitchDatabaseForEnvironment(
+        _buildEnvironment,
+        environmentNotifier.value,
+        email,
+      );
 
   static bool canSwitchDatabaseForEnvironment(
     AppEnvironment buildEnvironment,
+    AppEnvironment currentEnvironment,
     String? email,
   ) =>
       buildEnvironment != AppEnvironment.local &&
-      (email?.trim().toLowerCase().endsWith('@lema.club') ?? false);
+      email != null &&
+      (currentEnvironment == AppEnvironment.staging ||
+          email.trim().toLowerCase().endsWith('@lema.club'));
 
   static void setDatabaseEnvironment(AppEnvironment value) {
     if (!canSwitchDatabase || value == AppEnvironment.local) {

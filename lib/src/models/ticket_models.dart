@@ -240,6 +240,34 @@ class AccessTicketSearchPage {
   }
 }
 
+class AccessTicketBrowsePage {
+  const AccessTicketBrowsePage({required this.items, required this.hasMore});
+
+  final List<AccessTicketSearchItem> items;
+  final bool hasMore;
+
+  factory AccessTicketBrowsePage.fromJson(Map<String, dynamic> json) =>
+      AccessTicketBrowsePage(
+        items: _readList(json['items'])
+            .map((item) => AccessTicketSearchItem.fromJson(_readMap(item)))
+            .toList(growable: false),
+        hasMore: _readBool(json['has_more']),
+      );
+}
+
+class AccessTicketBrowseCount {
+  const AccessTicketBrowseCount({required this.total, required this.vip});
+
+  final int total;
+  final int vip;
+
+  factory AccessTicketBrowseCount.fromJson(Map<String, dynamic> json) =>
+      AccessTicketBrowseCount(
+        total: _readInt(json['total_count']),
+        vip: _readInt(json['vip_count']),
+      );
+}
+
 class AccessTicketSearchItem {
   const AccessTicketSearchItem({
     required this.matchReason,

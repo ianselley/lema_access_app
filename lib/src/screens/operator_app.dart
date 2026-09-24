@@ -14,7 +14,6 @@ import 'event_home_screen.dart';
 import 'event_list_screen.dart';
 import 'invalid_result_screen.dart';
 import 'login_screen.dart';
-import 'manual_confirmation_screen.dart';
 import 'manual_search_screen.dart';
 import 'network_error_result_screen.dart';
 import 'not_found_result_screen.dart';
@@ -41,7 +40,6 @@ enum OperatorPage {
   manualSearch,
   searchResults,
   ticketDetail,
-  manualConfirmation,
 
   profileSession,
 }
@@ -259,6 +257,10 @@ class _OperatorAppState extends ConsumerState<OperatorApp>
       case OperatorPage.eventHome:
         return EventHomeScreen(
           eventId: entry.eventId ?? _currentEventId ?? '',
+          onOpenSearch: () => _push(
+            OperatorPage.manualSearch,
+            eventId: entry.eventId ?? _currentEventId,
+          ),
           onOpenScanner: () => _switchPrimaryTool(
             OperatorPage.scannerActive,
             eventId: entry.eventId ?? _currentEventId,
@@ -293,36 +295,26 @@ class _OperatorAppState extends ConsumerState<OperatorApp>
         );
       case OperatorPage.notFoundResult:
         return NotFoundResultScreen(
-          onManualSearch: () => _push(
-            OperatorPage.manualSearch,
-            eventId: _currentEventId,
-          ),
+          onManualSearch: () =>
+              _push(OperatorPage.manualSearch, eventId: _currentEventId),
           onContinueScanning: () => _popToOrPush(OperatorPage.scannerActive),
         );
       case OperatorPage.networkErrorResult:
         return NetworkErrorResultScreen(
           onRetry: () => _popToOrPush(OperatorPage.scannerActive),
-          onManualSearch: () => _push(
-            OperatorPage.manualSearch,
-            eventId: _currentEventId,
-          ),
+          onManualSearch: () =>
+              _push(OperatorPage.manualSearch, eventId: _currentEventId),
         );
       case OperatorPage.manualSearch:
         return ManualSearchScreen(
-          onSearch: () => _push(OperatorPage.searchResults),
+          onOpenTicketDetail: () => _push(OperatorPage.ticketDetail),
         );
       case OperatorPage.searchResults:
         return SearchResultsScreen(
           onOpenTicketDetail: () => _push(OperatorPage.ticketDetail),
         );
       case OperatorPage.ticketDetail:
-        return TicketDetailScreen(
-          onConfirmManualAccess: () => _push(OperatorPage.manualConfirmation),
-        );
-      case OperatorPage.manualConfirmation:
-        return ManualConfirmationScreen(
-          onContinue: () => _popToOrPush(OperatorPage.scannerActive),
-        );
+        return const TicketDetailScreen();
 
       case OperatorPage.profileSession:
         return ProfileSessionScreen(
