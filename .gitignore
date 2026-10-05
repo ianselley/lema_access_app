@@ -47,3 +47,6 @@ app.*.map.json
 /android/app/release
 /android/key.properties
 /upload-keystore.jks
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
