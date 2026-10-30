@@ -83,7 +83,9 @@ void main() {
   });
 
   testWidgets('shows a compact date for upcoming events', (tester) async {
-    final startsAt = DateTime(2026, 10, 3, 23);
+    final startsAt = DateTime.now().add(const Duration(days: 7));
+    final expectedDate =
+        '${startsAt.day.toString().padLeft(2, '0')}/${startsAt.month.toString().padLeft(2, '0')}';
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -103,7 +105,7 @@ void main() {
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
     await tester.pumpAndSettle();
 
-    expect(find.text('03/10'), findsOneWidget);
+    expect(find.text(expectedDate), findsOneWidget);
   });
 }
 

@@ -10,38 +10,43 @@ import 'package:lema_access_app/src/screens/scanner_active_screen.dart';
 import 'package:lema_access_app/src/theme/app_theme.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-AccessScanOutcome outcome(String result, {int? remaining, String? reason}) =>
-    AccessScanOutcome.fromJson(
-      stage: AccessScanStage.checkIn,
-      source: AccessScanSource.scanner,
-      rawInput: 'VIP',
-      json: {
-        'result_code': result,
-        'reason_code': reason,
-        'ticket': {
-          'id': 'ticket',
-          'status': result == 'cancelled_or_invalid' ? 'issued' : 'checked_in',
-          'ticket_type': {'name': 'Terraza'},
-          'attendee': {'full_name': 'Ana'},
-          'zone_offer': {
-            'zone_name': 'Terraza',
-            'people_count_current': 7,
-            'service_starts_at': '2026-09-17T20:00:00Z',
-            'service_ends_at': '2026-09-17T23:00:00Z',
-          },
-          'add_ons': [
-            if (remaining != null)
-              {
-                'assignment_id': 'extra',
-                'name': 'Copa',
-                'quantity': 1,
-                'redeemed_quantity': remaining == 0 ? 1 : 0,
-                'remaining_quantity': remaining,
-              },
-          ],
-        },
+AccessScanOutcome outcome(
+  String result, {
+  int? remaining,
+  String? reason,
+  int extraCount = 1,
+}) => AccessScanOutcome.fromJson(
+  stage: AccessScanStage.checkIn,
+  source: AccessScanSource.scanner,
+  rawInput: 'VIP',
+  json: {
+    'result_code': result,
+    'reason_code': reason,
+    'ticket': {
+      'id': 'ticket',
+      'status': result == 'cancelled_or_invalid' ? 'issued' : 'checked_in',
+      'ticket_type': {'name': 'Terraza'},
+      'attendee': {'full_name': 'Ana'},
+      'zone_offer': {
+        'zone_name': 'Terraza',
+        'people_count_current': 7,
+        'service_starts_at': '2026-09-17T20:00:00Z',
+        'service_ends_at': '2026-09-17T23:00:00Z',
       },
-    );
+      'add_ons': [
+        if (remaining != null)
+          for (var index = 0; index < extraCount; index++)
+            {
+              'assignment_id': 'extra-$index',
+              'name': 'Copa',
+              'quantity': 1,
+              'redeemed_quantity': remaining == 0 ? 1 : 0,
+              'remaining_quantity': remaining,
+            },
+      ],
+    },
+  },
+);
 
 class FakeCamera extends MobileScannerPlatform {
   int starts = 0;
@@ -212,7 +217,28 @@ void main() {
         const BarcodeCapture(barcodes: [Barcode(rawValue: 'VIP')]),
       );
       await tester.pumpAndSettle();
+      expect(find.text('Puede canjear extras'), findsOneWidget);
       expect(find.text('Reservado · Terraza · 7 personas'), findsOneWidget);
+      final ticketStyle = tester
+          .widget<Text>(find.text('Reservado · Terraza · 7 personas'))
+          .style!;
+      expect(
+        ticketStyle.fontSize,
+        greaterThan(tester.widget<Text>(find.text('Ana')).style!.fontSize!),
+      );
+      expect(
+        find.ancestor(
+          of: find.text('Reservado · Terraza · 7 personas'),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Container &&
+                widget.decoration is ShapeDecoration &&
+                (widget.decoration! as ShapeDecoration).color ==
+                    AppColors.warning,
+          ),
+        ),
+        findsOneWidget,
+      );
       expect(find.textContaining('Horario de mesa:'), findsOneWidget);
       expect(find.text('REVISIÓN REQUERIDA'), findsNothing);
       expect(find.text('Validar entrada'), findsNothing);
@@ -220,11 +246,86 @@ void main() {
       await tester.tap(find.byType(CheckboxListTile));
       await tester.pump();
       expect(find.text('Cerrar'), findsOneWidget);
+      final resultBackground = find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.decoration is ShapeDecoration &&
+            (widget.decoration! as ShapeDecoration).color == AppColors.warning,
+      );
+      final modalHeight = tester.getSize(resultBackground).height;
       await tester.tap(find.text('Cerrar'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(tester.getSize(resultBackground).height, lessThan(modalHeight));
       await tester.pumpAndSettle();
       expect(find.byType(CheckboxListTile), findsNothing);
     },
   );
+  testWidgets(
+    'modal grows with extras, stays centered and only extras scroll',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final heights = <double>[];
+      for (final count in [1, 3, 12]) {
+        scanner = FakeScanController()
+          ..response = outcome('already_used', remaining: 1, extraCount: count);
+        await openScanner(tester);
+        tester.widget<MobileScanner>(find.byType(MobileScanner)).onDetect!(
+          const BarcodeCapture(barcodes: [Barcode(rawValue: 'VIP')]),
+        );
+        await tester.pumpAndSettle();
+        final modal = find.ancestor(
+          of: find.text('Puede canjear extras'),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Container &&
+                widget.decoration is ShapeDecoration &&
+                (widget.decoration! as ShapeDecoration).color ==
+                    AppColors.warning,
+          ),
+        );
+        final rect = tester.getRect(modal);
+        heights.add(rect.height);
+        expect(rect.center.dy, closeTo(844 / 2, 1));
+        final extras = find.descendant(
+          of: modal,
+          matching: find.byType(Scrollable),
+        );
+        final position = tester.state<ScrollableState>(extras).position;
+        expect(position.maxScrollExtent, count == 12 ? greaterThan(0) : 0);
+        if (count == 12) {
+          final headlinePosition = tester.getTopLeft(
+            find.text('TICKET YA UTILIZADO'),
+          );
+          final actionPosition = tester.getTopLeft(
+            find.widgetWithText(FilledButton, 'Canjear extras'),
+          );
+          await tester.drag(extras, const Offset(0, -300));
+          await tester.pumpAndSettle();
+          expect(position.pixels, greaterThan(0));
+          expect(
+            tester.getTopLeft(find.text('TICKET YA UTILIZADO')),
+            headlinePosition,
+          );
+          expect(
+            tester.getTopLeft(
+              find.widgetWithText(FilledButton, 'Canjear extras'),
+            ),
+            actionPosition,
+          );
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      }
+      expect(heights[0], lessThan(heights[1]));
+      expect(heights[1], lessThan(heights[2]));
+    },
+  );
+
   testWidgets('used tickets with consumed extras dismiss automatically', (
     tester,
   ) async {
@@ -235,6 +336,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('TICKET YA UTILIZADO'), findsOneWidget);
+    expect(find.text('Puede canjear extras'), findsNothing);
     expect(find.text('Validar entrada'), findsNothing);
     expect(find.byType(CheckboxListTile), findsNothing);
     await tester.pump(const Duration(seconds: 2));
@@ -255,11 +357,20 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('No validar'), findsOneWidget);
-      expect(find.text('Validar entrada'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.widgetWithText(FilledButton, 'No validar')).dy -
+            tester.getBottomLeft(find.text('Ana')).dy,
+        closeTo(24, 1),
+      );
+      expect(
+        find.widgetWithText(OutlinedButton, 'Validar de todos modos'),
+        findsOneWidget,
+      );
+      expect(find.text('Validar entrada'), findsNothing);
       expect(find.textContaining('de forma excepcional'), findsNothing);
       expect(
         tester.widget<Text>(find.text('FUERA DEL HORARIO VÁLIDO')).style?.color,
-        AppColors.error,
+        AppColors.black,
       );
       await tester.tap(find.text('No validar'));
       await tester.pumpAndSettle();

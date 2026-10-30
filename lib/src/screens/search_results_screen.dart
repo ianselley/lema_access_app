@@ -459,12 +459,29 @@ class _EmptyResultsPanel extends StatelessWidget {
     return LemaPanel(
       color: AppColors.surfaceLow,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Sin coincidencias', style: textTheme.titleLarge),
+          Row(
+            children: [
+              const Icon(
+                Icons.confirmation_number_outlined,
+                size: 20,
+                color: AppColors.onSurfaceMuted,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  query.isEmpty ? 'No hay tickets' : 'Sin coincidencias',
+                  style: textTheme.titleLarge,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 6),
           Text(
-            'No hay tickets que coincidan con "$query".',
+            query.isEmpty
+                ? 'No hay tickets para mostrar.'
+                : 'No hay tickets que coincidan con "$query".',
             style: textTheme.bodyMedium?.copyWith(
               color: AppColors.onSurfaceMuted,
             ),

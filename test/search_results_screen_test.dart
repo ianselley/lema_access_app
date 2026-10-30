@@ -8,6 +8,7 @@ import 'package:lema_access_app/src/providers/event_providers.dart';
 import 'package:lema_access_app/src/providers/ticket_providers.dart';
 import 'package:lema_access_app/src/screens/search_results_screen.dart';
 import 'package:lema_access_app/src/services/ticket_service.dart';
+import 'package:lema_access_app/src/widgets/lema_components.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 AccessEventHome home(bool canBrowse) => AccessEventHome(
@@ -88,6 +89,7 @@ class FakeBrowseService extends AccessTicketService {
 
   final calls = <(bool, int, String, bool?)>[];
   int countCalls = 0;
+  bool empty = false;
 
   @override
   Future<AccessTicketBrowsePage> listEventTickets({
@@ -100,6 +102,9 @@ class FakeBrowseService extends AccessTicketService {
     bool sortByIssuedAt = false,
   }) async {
     calls.add((vip, offset, query, checkedIn));
+    if (empty) {
+      return const AccessTicketBrowsePage(items: [], hasMore: false);
+    }
     if (vip) {
       if (offset > 0) {
         return AccessTicketBrowsePage(
@@ -131,11 +136,59 @@ class FakeBrowseService extends AccessTicketService {
     required bool? checkedIn,
   }) async {
     countCalls++;
+    if (empty) return const AccessTicketBrowseCount(total: 0, vip: 0);
     return const AccessTicketBrowseCount(total: 3, vip: 1);
   }
 }
 
 void main() {
+  testWidgets('empty tickets distinguish browsing from a typed search', (
+    tester,
+  ) async {
+    final service = FakeBrowseService()..empty = true;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accessCurrentEventIdProvider.overrideWith((ref) => 'event'),
+          accessEventHomeProvider(
+            'event',
+          ).overrideWith((ref) async => home(true)),
+          accessTicketServiceProvider.overrideWithValue(service),
+        ],
+        child: const MaterialApp(home: SearchResultsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('No hay tickets'), findsOneWidget);
+    expect(find.text('No hay tickets para mostrar.'), findsOneWidget);
+    expect(find.textContaining('coincidan'), findsNothing);
+    expect(find.byIcon(Icons.confirmation_number_outlined), findsOneWidget);
+    expect(
+      tester
+          .getSize(
+            find.ancestor(
+              of: find.text('No hay tickets'),
+              matching: find.byType(LemaPanel),
+            ),
+          )
+          .width,
+      tester.getSize(find.byType(TextField)).width,
+    );
+
+    await tester.enterText(find.byType(TextField), 'Ana');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('No hay tickets que coincidan con "Ana".'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Borrar búsqueda'));
+    await tester.pumpAndSettle();
+    expect(find.text('No hay tickets para mostrar.'), findsOneWidget);
+    expect(find.textContaining('coincidan'), findsNothing);
+  });
+
   testWidgets('privileged browse shows and prefetches both ticket groups', (
     tester,
   ) async {
@@ -213,10 +266,12 @@ void main() {
       await tester.scrollUntilVisible(
         find.text('Normal Ana'),
         250,
-        scrollable: find.descendant(
-          of: find.byType(CustomScrollView),
-          matching: find.byType(Scrollable),
-        ).first,
+        scrollable: find
+            .descendant(
+              of: find.byType(CustomScrollView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
       expect(find.text('Normal Ana'), findsOneWidget);
     },

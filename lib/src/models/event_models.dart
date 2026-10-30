@@ -294,6 +294,8 @@ class AccessEventCounters {
   final int cancelledOrVoidedCount;
   final int capacityTotal;
   final int ticketTypeCount;
+
+  int get soldCount => checkedInCount + pendingCheckInCount;
 }
 
 class AccessEventSummary {

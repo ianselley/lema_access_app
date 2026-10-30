@@ -112,6 +112,8 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
   Set<String> _selectedAddOnIds = <String>{};
   bool _isRedeemingExtras = false;
   String? _extraValidationError;
+  final _resultModalKey = GlobalKey();
+  Rect? _resultExitRect;
 
   // --- Animation controllers ---
   late final AnimationController _checkAnimController;
@@ -346,6 +348,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
 
   void _showScanResultOverlay(AccessScanOutcome outcome) {
     _resultDisplayTimer?.cancel();
+    _resultExitRect = null;
     final addOns = outcome.ticket?.addOns ?? const <AccessTicketAddOn>[];
     final canRedeem =
         outcome.ticket?.status == 'checked_in' ||
@@ -434,6 +437,15 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
 
   void _finishResultOverlay({AccessTicketSnapshot? ticketOverride}) {
     if (!mounted || !_showResultOverlay) return;
+    final modalBox = _resultModalKey.currentContext?.findRenderObject();
+    if (modalBox is RenderBox && modalBox.hasSize) {
+      _resultExitRect =
+          modalBox.localToGlobal(
+            Offset.zero,
+            ancestor: context.findRenderObject(),
+          ) &
+          modalBox.size;
+    }
     _lastScanInfo = _lastScanInfoFromOutcome(
       ref.read(accessCurrentEventIdProvider),
       _overlayOutcome!,
@@ -506,7 +518,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
     };
   }
 
-  String? _overlayPrimaryLabel(AccessScanOutcome? outcome) {
+  String? _overlaySubjectLabel(AccessScanOutcome? outcome) {
     if (outcome == null) {
       return null;
     }
@@ -532,7 +544,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
     return null;
   }
 
-  String? _overlaySecondaryLabel(AccessScanOutcome? outcome) {
+  String? _overlayTicketLabel(AccessScanOutcome? outcome) {
     if (outcome == null) {
       return null;
     }
@@ -1225,6 +1237,25 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                       ),
                     ),
 
+                  // -- Bottom panel: last scanned ticket --
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: _BottomLastScanPanel(
+                      lastScan: displayedLastScan,
+                      onOpenHistory: hasPersistentModal
+                          ? null
+                          : () => _openHistory(
+                              currentEventId,
+                              showOccupancy: showOccupancy,
+                            ),
+                      onTapLastScan: hasPersistentModal
+                          ? null
+                          : () => _openLastScan(displayedLastScan),
+                    ),
+                  ),
+
                   if (hasPersistentModal)
                     const Positioned.fill(
                       child: ModalBarrier(
@@ -1251,10 +1282,10 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                           _overlayOutcome,
                           _overlayResultCode!,
                         );
-                        final primaryLabel = _overlayPrimaryLabel(
+                        final subjectLabel = _overlaySubjectLabel(
                           _overlayOutcome,
                         );
-                        final secondaryLabel = _overlaySecondaryLabel(
+                        final ticketLabel = _overlayTicketLabel(
                           _overlayOutcome,
                         );
                         final scheduleLabel = _overlayScheduleLabel(
@@ -1267,25 +1298,37 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
 
                         final slideProgress = _slideDownAnimation.value;
                         final expandedMargin = math.min(frameSide * 0.12, 26.0);
-                        final startRect = hasPersistentModal
-                            ? Rect.fromCenter(
-                                center: Offset(
-                                  totalWidth / 2,
-                                  topPadding +
-                                      (cameraAreaHeight - topPadding) / 2,
-                                ),
-                                width: math.min(totalWidth - 16, 460),
-                                height: (cameraAreaHeight - topPadding - 20)
-                                    .clamp(420.0, 680.0),
-                              )
-                            : Rect.fromCenter(
-                                center: scanWindow.center,
-                                width: math.min(
-                                  totalWidth - 16,
-                                  frameSide + expandedMargin * 2,
-                                ),
-                                height: frameSide + expandedMargin * 2.6,
-                              );
+                        final startRect =
+                            _resultExitRect ??
+                            (hasPersistentModal
+                                ? Rect.fromCenter(
+                                    center: Offset(
+                                      totalWidth / 2,
+                                      topPadding +
+                                          (totalHeight -
+                                                  topPadding -
+                                                  mediaQuery
+                                                      .viewPadding
+                                                      .bottom) /
+                                              2,
+                                    ),
+                                    width: math.min(totalWidth - 16, 460),
+                                    height: math.min(
+                                      totalHeight -
+                                          topPadding -
+                                          mediaQuery.viewPadding.bottom -
+                                          32,
+                                      680,
+                                    ),
+                                  )
+                                : Rect.fromCenter(
+                                    center: scanWindow.center,
+                                    width: math.min(
+                                      totalWidth - 16,
+                                      frameSide + expandedMargin * 2,
+                                    ),
+                                    height: frameSide + expandedMargin * 2.6,
+                                  ));
                         final endWidth = math.min(frameSide * 0.9, 286.0);
                         const endHeight = 138.0;
                         final endRect = Rect.fromLTWH(
@@ -1306,45 +1349,48 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                           rect: currentRect,
                           child: Opacity(
                             opacity: opacity.clamp(0.0, 1.0),
-                            child: hasPersistentModal && slideProgress < 0.22
-                                ? _ExtrasScanResultModal(
-                                    accent: accent,
-                                    icon: icon,
-                                    headline: headline,
-                                    primaryLabel: primaryLabel,
-                                    secondaryLabel: secondaryLabel,
-                                    scheduleLabel: scheduleLabel,
-                                    ticketStatus:
-                                        _overlayOutcome!.ticket!.status,
-                                    alreadyUsed:
-                                        _overlayOutcome!.resultCode ==
-                                        'already_used',
-                                    addOns: addOns,
-                                    selectedIds: _selectedAddOnIds,
-                                    isLoading: _isRedeemingExtras,
-                                    errorMessage: _extraValidationError,
-                                    requiresValidityDecision:
-                                        requiresValidityDecision,
-                                    onChanged: (assignmentId, selected) {
-                                      setState(() {
-                                        if (selected) {
-                                          _selectedAddOnIds.add(assignmentId);
-                                        } else {
-                                          _selectedAddOnIds.remove(
-                                            assignmentId,
-                                          );
-                                        }
-                                      });
-                                    },
-                                    onValidate: _validateExtras,
-                                    onReject: _finishResultOverlay,
+                            child: hasPersistentModal && slideProgress == 0
+                                ? Align(
+                                    child: _ExtrasScanResultModal(
+                                      key: _resultModalKey,
+                                      accent: accent,
+                                      icon: icon,
+                                      headline: headline,
+                                      subjectLabel: subjectLabel,
+                                      ticketLabel: ticketLabel,
+                                      scheduleLabel: scheduleLabel,
+                                      ticketStatus:
+                                          _overlayOutcome!.ticket!.status,
+                                      alreadyUsed:
+                                          _overlayOutcome!.resultCode ==
+                                          'already_used',
+                                      addOns: addOns,
+                                      selectedIds: _selectedAddOnIds,
+                                      isLoading: _isRedeemingExtras,
+                                      errorMessage: _extraValidationError,
+                                      requiresValidityDecision:
+                                          requiresValidityDecision,
+                                      onChanged: (assignmentId, selected) {
+                                        setState(() {
+                                          if (selected) {
+                                            _selectedAddOnIds.add(assignmentId);
+                                          } else {
+                                            _selectedAddOnIds.remove(
+                                              assignmentId,
+                                            );
+                                          }
+                                        });
+                                      },
+                                      onValidate: _validateExtras,
+                                      onReject: _finishResultOverlay,
+                                    ),
                                   )
                                 : _ScanResultOverlayBadge(
                                     accent: accent,
                                     icon: icon,
                                     headline: headline,
-                                    primaryLabel: primaryLabel,
-                                    secondaryLabel: secondaryLabel,
+                                    subjectLabel: subjectLabel,
+                                    ticketLabel: ticketLabel,
                                     tertiaryLabel: scheduleLabel,
                                     collapseProgress: slideProgress,
                                   ),
@@ -1352,25 +1398,6 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
                         );
                       },
                     ),
-
-                  // -- Bottom panel: last scanned ticket --
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: _BottomLastScanPanel(
-                      lastScan: displayedLastScan,
-                      onOpenHistory: hasPersistentModal
-                          ? null
-                          : () => _openHistory(
-                              currentEventId,
-                              showOccupancy: showOccupancy,
-                            ),
-                      onTapLastScan: hasPersistentModal
-                          ? null
-                          : () => _openLastScan(displayedLastScan),
-                    ),
-                  ),
                 ],
               );
             },
@@ -1387,11 +1414,12 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
 
 class _ExtrasScanResultModal extends StatelessWidget {
   const _ExtrasScanResultModal({
+    super.key,
     required this.accent,
     required this.icon,
     required this.headline,
-    required this.primaryLabel,
-    required this.secondaryLabel,
+    required this.subjectLabel,
+    required this.ticketLabel,
     required this.scheduleLabel,
     required this.ticketStatus,
     required this.alreadyUsed,
@@ -1408,8 +1436,8 @@ class _ExtrasScanResultModal extends StatelessWidget {
   final Color accent;
   final IconData icon;
   final String headline;
-  final String? primaryLabel;
-  final String? secondaryLabel;
+  final String? subjectLabel;
+  final String? ticketLabel;
   final String? scheduleLabel;
   final String ticketStatus;
   final bool alreadyUsed;
@@ -1424,214 +1452,188 @@ class _ExtrasScanResultModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme.apply(
+      bodyColor: AppColors.black,
+      displayColor: AppColors.black,
+    );
     final hasRemaining = addOns.any((addOn) => addOn.remainingQuantity > 0);
     final canRedeem = ticketStatus == 'issued' || ticketStatus == 'checked_in';
+    final primaryButtonStyle = FilledButton.styleFrom(
+      backgroundColor: AppColors.black,
+      foregroundColor: Colors.white,
+      disabledBackgroundColor: AppColors.black.withValues(alpha: 0.6),
+      disabledForegroundColor: Colors.white70,
+      minimumSize: const Size.fromHeight(54),
+    );
 
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: ShapeDecoration(
-        color: const Color(0xFF151012),
-        shape: ContinuousRectangleBorder(
-          borderRadius: BorderRadius.circular(36),
-          side: BorderSide(color: accent.withValues(alpha: 0.35)),
+    return Theme(
+      data: theme.copyWith(
+        textTheme: textTheme,
+        listTileTheme: const ListTileThemeData(
+          textColor: AppColors.black,
+          iconColor: AppColors.black,
         ),
-        shadows: [
-          BoxShadow(color: accent.withValues(alpha: 0.14), blurRadius: 28),
-        ],
+        checkboxTheme: CheckboxThemeData(
+          side: const BorderSide(color: AppColors.black, width: 2),
+          checkColor: WidgetStateProperty.all(Colors.white),
+          fillColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? AppColors.black
+                : Colors.transparent,
+          ),
+        ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          accent.withValues(alpha: 0.22),
-                          accent.withValues(alpha: 0.07),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: accent.withValues(alpha: 0.28)),
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(icon, color: accent, size: 52),
-                        const SizedBox(height: 8),
-                        Text(
-                          headline.toUpperCase(),
-                          textAlign: TextAlign.center,
-                          style: textTheme.headlineMedium?.copyWith(
-                            color: accent,
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        if (primaryLabel != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            primaryLabel!,
-                            textAlign: TextAlign.center,
-                            style: textTheme.titleLarge?.copyWith(
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                        if (secondaryLabel != null) ...[
-                          const SizedBox(height: 10),
-                          Text(
-                            'TIPO DE ENTRADA',
-                            style: textTheme.labelSmall?.copyWith(
-                              color: Colors.white60,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            secondaryLabel!,
-                            textAlign: TextAlign.center,
-                            style: textTheme.titleLarge?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                        if (scheduleLabel != null) ...[
-                          const SizedBox(height: 10),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.schedule_rounded,
-                                color: accent,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  scheduleLabel!,
-                                  style: textTheme.bodyMedium?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (addOns.isNotEmpty) ...[
-                    const SizedBox(height: 18),
-                    Text(
-                      'Canjea los siguientes extras',
-                      style: textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  if (addOns.isNotEmpty && !hasRemaining)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      child: Text(
-                        'No quedan extras.',
-                        textAlign: TextAlign.center,
-                        style: textTheme.bodyLarge?.copyWith(
-                          color: AppColors.warning,
-                        ),
-                      ),
-                    ),
-                  for (final addOn in addOns) ...[
-                    if (addOn.redeemedQuantity > 0)
-                      ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(
-                          Icons.check_circle_outline_rounded,
-                          color: AppColors.onSurfaceMuted,
-                        ),
-                        title: Text(
-                          '${addOn.redeemedQuantity} × ${addOn.displayName}',
-                          style: textTheme.bodyLarge?.copyWith(
-                            color: AppColors.onSurfaceMuted,
-                            decoration: TextDecoration.lineThrough,
-                          ),
-                        ),
-                        subtitle: const Text('Consumido'),
-                      ),
-                    if (addOn.remainingQuantity > 0)
-                      CheckboxListTile(
-                        value: selectedIds.contains(addOn.assignmentId),
-                        onChanged: isLoading || !canRedeem
-                            ? null
-                            : (selected) => onChanged(
-                                addOn.assignmentId,
-                                selected ?? false,
-                              ),
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: EdgeInsets.zero,
-                        activeColor: AppColors.primary,
-                        checkColor: AppColors.black,
-                        title: Text(
-                          '${addOn.remainingQuantity} × ${addOn.displayName}',
-                          style: textTheme.bodyLarge,
-                        ),
-                        subtitle: addOn.description == null
-                            ? null
-                            : Text(addOn.description!),
-                      ),
-                  ],
-                ],
-              ),
-            ),
-            if (errorMessage != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                errorMessage!,
-                style: textTheme.bodySmall?.copyWith(color: AppColors.error),
-              ),
-            ],
-            const SizedBox(height: 12),
-            if (requiresValidityDecision) ...[
-              OutlinedButton.icon(
-                onPressed: isLoading ? null : onReject,
-                icon: const Icon(Icons.close_rounded),
-                label: const Text('No validar'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(54),
-                  side: const BorderSide(color: Colors.white54),
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
-            LemaPrimaryButton(
-              label: isLoading
-                  ? 'Procesando...'
-                  : selectedIds.isEmpty
-                  ? (alreadyUsed || !requiresValidityDecision
-                        ? 'Cerrar'
-                        : 'Validar entrada')
-                  : 'Canjear extras',
-              icon: isLoading
-                  ? Icons.hourglass_top
-                  : selectedIds.isEmpty
-                  ? (alreadyUsed || !requiresValidityDecision
-                        ? Icons.close_rounded
-                        : Icons.verified_rounded)
-                  : Icons.redeem_rounded,
-              onPressed: isLoading ? null : onValidate,
-            ),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: ShapeDecoration(
+          color: accent,
+          shape: ContinuousRectangleBorder(
+            borderRadius: BorderRadius.circular(36),
+            side: BorderSide(color: accent.withValues(alpha: 0.35)),
+          ),
+          shadows: [
+            BoxShadow(color: accent.withValues(alpha: 0.14), blurRadius: 28),
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _ScanResultHeading(
+                icon: icon,
+                headline: headline,
+                supportingLabel: alreadyUsed && hasRemaining
+                    ? 'Puede canjear extras'
+                    : null,
+                subjectLabel: subjectLabel,
+                ticketLabel: ticketLabel,
+                scheduleLabel: scheduleLabel,
+              ),
+              if (addOns.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                Text(
+                  'Canjea los siguientes extras',
+                  style: textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: ListView(
+                    primary: false,
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    children: [
+                      if (!hasRemaining)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          child: Text(
+                            'No quedan extras.',
+                            textAlign: TextAlign.center,
+                            style: textTheme.bodyLarge?.copyWith(
+                              color: AppColors.black,
+                            ),
+                          ),
+                        ),
+                      for (final addOn in addOns) ...[
+                        if (addOn.redeemedQuantity > 0)
+                          ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              Icons.check_circle_outline_rounded,
+                              color: AppColors.black.withValues(alpha: 0.85),
+                            ),
+                            title: Text(
+                              '${addOn.redeemedQuantity} × ${addOn.displayName}',
+                              style: textTheme.bodyLarge?.copyWith(
+                                color: AppColors.black.withValues(alpha: 0.85),
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                            subtitle: const Text('Consumido'),
+                          ),
+                        if (addOn.remainingQuantity > 0)
+                          CheckboxListTile(
+                            value: selectedIds.contains(addOn.assignmentId),
+                            onChanged: isLoading || !canRedeem
+                                ? null
+                                : (selected) => onChanged(
+                                    addOn.assignmentId,
+                                    selected ?? false,
+                                  ),
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: EdgeInsets.zero,
+                            activeColor: AppColors.black,
+                            checkColor: Colors.white,
+                            title: Text(
+                              '${addOn.remainingQuantity} × ${addOn.displayName}',
+                              style: textTheme.bodyLarge,
+                            ),
+                            subtitle: addOn.description == null
+                                ? null
+                                : Text(addOn.description!),
+                          ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+              if (errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  errorMessage!,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: AppColors.black,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+              if (requiresValidityDecision) ...[
+                FilledButton.icon(
+                  onPressed: isLoading ? null : onReject,
+                  icon: const Icon(Icons.close_rounded),
+                  label: const Text('No validar'),
+                  style: primaryButtonStyle,
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: isLoading ? null : onValidate,
+                  icon: Icon(
+                    isLoading ? Icons.hourglass_top : Icons.verified_rounded,
+                  ),
+                  label: Text(
+                    isLoading ? 'Procesando...' : 'Validar de todos modos',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.black,
+                    minimumSize: const Size.fromHeight(54),
+                    side: const BorderSide(color: AppColors.black),
+                  ),
+                ),
+              ] else
+                FilledButton.icon(
+                  style: primaryButtonStyle,
+                  label: Text(
+                    isLoading
+                        ? 'Procesando...'
+                        : selectedIds.isEmpty
+                        ? 'Cerrar'
+                        : 'Canjear extras',
+                  ),
+                  icon: Icon(
+                    isLoading
+                        ? Icons.hourglass_top
+                        : selectedIds.isEmpty
+                        ? Icons.close_rounded
+                        : Icons.redeem_rounded,
+                  ),
+                  onPressed: isLoading ? null : onValidate,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -1757,8 +1759,8 @@ class _ScanResultOverlayBadge extends StatelessWidget {
     required this.accent,
     required this.icon,
     required this.headline,
-    this.primaryLabel,
-    this.secondaryLabel,
+    this.subjectLabel,
+    this.ticketLabel,
     this.tertiaryLabel,
     required this.collapseProgress,
   });
@@ -1766,46 +1768,22 @@ class _ScanResultOverlayBadge extends StatelessWidget {
   final Color accent;
   final IconData icon;
   final String headline;
-  final String? primaryLabel;
-  final String? secondaryLabel;
+  final String? subjectLabel;
+  final String? ticketLabel;
   final String? tertiaryLabel;
   final double collapseProgress;
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final clampedCollapse = collapseProgress.clamp(0.0, 1.0);
-    final iconContainerSize = lerpDouble(84, 52, clampedCollapse)!;
-    final iconSize = lerpDouble(40, 24, clampedCollapse)!;
-    final cardRadius = lerpDouble(32, 24, clampedCollapse)!;
-    final horizontalPadding = lerpDouble(18, 14, clampedCollapse)!;
-    final verticalPadding = lerpDouble(18, 12, clampedCollapse)!;
-    final headlineSize = lerpDouble(24, 18, clampedCollapse)!;
-    final primaryOpacity = (1.0 - (clampedCollapse * 1.3)).clamp(0.0, 1.0);
-    final secondaryOpacity = (1.0 - (clampedCollapse * 1.7)).clamp(0.0, 1.0);
-
+    final collapsed = collapseProgress > 0.55;
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: horizontalPadding,
-        vertical: verticalPadding,
-      ),
+      padding: const EdgeInsets.all(20),
       decoration: ShapeDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF151012), Color(0xFF0D090A)],
-        ),
+        color: accent,
         shape: ContinuousRectangleBorder(
-          borderRadius: BorderRadius.circular(cardRadius * 1.5),
+          borderRadius: BorderRadius.circular(44),
         ),
         shadows: [
-          BoxShadow(
-            color: accent.withValues(
-              alpha: lerpDouble(0.16, 0.1, clampedCollapse)!,
-            ),
-            blurRadius: lerpDouble(28, 18, clampedCollapse)!,
-            spreadRadius: lerpDouble(1, 0, clampedCollapse)!,
-          ),
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.32),
             blurRadius: 24,
@@ -1813,118 +1791,124 @@ class _ScanResultOverlayBadge extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: iconContainerSize,
-            height: iconContainerSize,
-            decoration: ShapeDecoration(
-              color: accent.withValues(alpha: 0.14),
-              shape: ContinuousRectangleBorder(
-                borderRadius: BorderRadius.circular(
-                  lerpDouble(22, 16, clampedCollapse)! * 1.5,
-                ),
-                side: BorderSide(color: accent.withValues(alpha: 0.2)),
-              ),
+      child: LayoutBuilder(
+        builder: (context, constraints) => FittedBox(
+          fit: BoxFit.scaleDown,
+          child: SizedBox(
+            width: constraints.maxWidth,
+            child: _ScanResultHeading(
+              icon: icon,
+              headline: headline,
+              subjectLabel: subjectLabel,
+              ticketLabel: ticketLabel,
+              scheduleLabel: tertiaryLabel,
+              collapsed: collapsed,
             ),
-            child: Icon(icon, size: iconSize, color: accent),
           ),
-          SizedBox(height: lerpDouble(14, 10, clampedCollapse)!),
-          Text(
-            headline.toUpperCase(),
-            maxLines: clampedCollapse > 0.55 ? 1 : 2,
-            overflow: TextOverflow.ellipsis,
-            style: textTheme.headlineMedium?.copyWith(
-              color: accent,
-              fontWeight: FontWeight.w800,
-              fontSize: headlineSize,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          if (clampedCollapse < 0.55 &&
-              primaryLabel != null &&
-              primaryLabel!.isNotEmpty)
-            Opacity(
-              opacity: primaryOpacity,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  top: lerpDouble(8, 4, clampedCollapse)!,
-                ),
-                child: Text(
-                  primaryLabel!,
-                  maxLines: clampedCollapse > 0.25 ? 1 : 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
-                    fontSize: lerpDouble(18, 15, clampedCollapse),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          if (clampedCollapse < 0.55 &&
-              secondaryLabel != null &&
-              secondaryLabel!.isNotEmpty)
-            Opacity(
-              opacity: secondaryOpacity,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  top: lerpDouble(4, 2, clampedCollapse)!,
-                ),
-                child: Text(
-                  secondaryLabel!,
-                  maxLines: clampedCollapse > 0.1 ? 1 : 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: Colors.white70,
-                    fontSize: lerpDouble(15, 13, clampedCollapse),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          if (clampedCollapse < 0.55 &&
-              tertiaryLabel != null &&
-              tertiaryLabel!.isNotEmpty)
-            Opacity(
-              opacity: secondaryOpacity,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 5),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.schedule_rounded,
-                      size: lerpDouble(17, 14, clampedCollapse),
-                      color: accent,
-                    ),
-                    const SizedBox(width: 5),
-                    Flexible(
-                      child: Text(
-                        tertiaryLabel!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: Colors.white70,
-                          fontSize: lerpDouble(14, 12, clampedCollapse),
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Glassy button for manual validation
-// ---------------------------------------------------------------------------
+class _ScanResultHeading extends StatelessWidget {
+  const _ScanResultHeading({
+    required this.icon,
+    required this.headline,
+    required this.subjectLabel,
+    required this.ticketLabel,
+    required this.scheduleLabel,
+    this.collapsed = false,
+    this.supportingLabel,
+  });
+
+  final IconData icon;
+  final String headline;
+  final String? supportingLabel;
+  final String? subjectLabel;
+  final String? ticketLabel;
+  final String? scheduleLabel;
+  final bool collapsed;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final focusLabel = ticketLabel ?? subjectLabel;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 22, color: AppColors.black),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                headline.toUpperCase(),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.labelLarge?.copyWith(
+                  color: AppColors.black,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (!collapsed && supportingLabel != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            supportingLabel!,
+            textAlign: TextAlign.center,
+            style: textTheme.bodyMedium?.copyWith(color: AppColors.black),
+          ),
+        ],
+        if (focusLabel != null) ...[
+          const SizedBox(height: 16),
+          Text(
+            focusLabel,
+            textAlign: TextAlign.center,
+            maxLines: collapsed ? 1 : 3,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.headlineLarge?.copyWith(
+              color: AppColors.black,
+              fontSize: collapsed ? 22 : 28,
+              fontWeight: FontWeight.w800,
+              height: 1.15,
+            ),
+          ),
+        ],
+        if (!collapsed && scheduleLabel != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            scheduleLabel!,
+            textAlign: TextAlign.center,
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.black,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+        if (!collapsed && ticketLabel != null && subjectLabel != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            subjectLabel!,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.bodyMedium?.copyWith(
+              color: AppColors.black.withValues(alpha: 0.85),
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
 
 class _GlassyButton extends StatelessWidget {
   const _GlassyButton({required this.label, required this.icon, this.onTap});

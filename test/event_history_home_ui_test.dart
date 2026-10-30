@@ -9,8 +9,21 @@ import 'package:lema_access_app/src/screens/event_home_screen.dart';
 import 'package:lema_access_app/src/screens/event_ui.dart';
 
 void main() {
+  test('sold ticket counts exclude cancellations and handle no sales', () {
+    expect(AccessEventCounters.fromJson({}).soldCount, 0);
+    expect(
+      AccessEventCounters.fromJson({
+        'issued_count': 10,
+        'checked_in_count': 3,
+        'pending_check_in_count': 5,
+        'cancelled_or_voided_count': 2,
+      }).soldCount,
+      8,
+    );
+  });
+
   testWidgets(
-    'event home explains access and capacity without showing a role',
+    'event home shows scanned share of sold tickets and unsold inventory',
     (tester) async {
       final home = AccessEventHome(
         membershipRole: 'brand_owner',
@@ -48,10 +61,10 @@ void main() {
           timezone: null,
         ),
         counters: const AccessEventCounters(
-          issuedCount: 0,
+          issuedCount: 10,
           checkedInCount: 3,
-          pendingCheckInCount: 0,
-          cancelledOrVoidedCount: 0,
+          pendingCheckInCount: 5,
+          cancelledOrVoidedCount: 2,
           capacityTotal: 12,
           ticketTypeCount: 0,
         ),
@@ -91,11 +104,11 @@ void main() {
         lessThan(16),
       );
       expect(find.text('Propietario de marca'), findsNothing);
-      expect(find.text('3'), findsOneWidget);
-      expect(find.text('Accesos validados'), findsOneWidget);
-      expect(find.text('25%'), findsOneWidget);
-      expect(find.text('Ocupación del aforo'), findsOneWidget);
-      expect(find.textContaining('de 12 plazas'), findsOneWidget);
+      expect(find.text('Entradas escaneadas'), findsOneWidget);
+      expect(find.text('3 de 8 vendidas · 38%'), findsOneWidget);
+      expect(find.text('4 entradas sin vender'), findsOneWidget);
+      expect(find.text('Ocupación del aforo'), findsNothing);
+      expect(find.textContaining('plazas'), findsNothing);
     },
   );
 

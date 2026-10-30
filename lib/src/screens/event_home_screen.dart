@@ -75,10 +75,9 @@ class EventHomeScreen extends ConsumerWidget {
                         eventLocation: home.locationLabel,
                         eventSchedule: home.scheduleLabel,
                         statusLabel: home.statusLabel,
-                        progressLabel: home.progressLabel,
                         checkedInCount: home.counters.checkedInCount,
+                        soldCount: home.counters.soldCount,
                         capacityTotal: home.counters.capacityTotal,
-                        progress: home.progress,
                         showCurrentOccupancy: home.canViewCurrentOccupancy,
                       ),
                       const SizedBox(height: 24),
@@ -361,10 +360,9 @@ class _TopHero extends StatelessWidget {
     required this.eventLocation,
     required this.eventSchedule,
     required this.statusLabel,
-    required this.progressLabel,
     required this.checkedInCount,
+    required this.soldCount,
     required this.capacityTotal,
-    required this.progress,
     required this.showCurrentOccupancy,
   });
 
@@ -372,15 +370,18 @@ class _TopHero extends StatelessWidget {
   final String eventLocation;
   final String? eventSchedule;
   final String statusLabel;
-  final String progressLabel;
   final int checkedInCount;
+  final int soldCount;
   final int capacityTotal;
-  final double progress;
   final bool showCurrentOccupancy;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final progress = soldCount > 0 ? checkedInCount / soldCount : 0.0;
+    final unsoldCount = capacityTotal > soldCount
+        ? capacityTotal - soldCount
+        : 0;
 
     return LemaPanel(
       padding: const EdgeInsets.all(18),
@@ -425,54 +426,46 @@ class _TopHero extends StatelessWidget {
             const SizedBox(height: 18),
             Divider(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
             const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('$checkedInCount', style: textTheme.headlineLarge),
-                      const SizedBox(height: 4),
-                      Text('Accesos validados', style: textTheme.bodyMedium),
-                    ],
+            Text('Entradas escaneadas', style: textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '$checkedInCount',
+                    style: textTheme.headlineLarge?.copyWith(
+                      color: AppColors.primary,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        capacityTotal > 0 ? progressLabel : '—',
-                        style: textTheme.headlineLarge?.copyWith(
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text('Ocupación del aforo', style: textTheme.bodyMedium),
-                    ],
+                  TextSpan(text: ' de $soldCount vendidas'),
+                  TextSpan(
+                    text: ' · ${(progress * 100).round()}%',
+                    style: textTheme.bodyLarge?.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+              style: textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 12),
+            LemaProgressBar(
+              value: progress,
+              color: AppColors.primaryStrong,
+              background: AppColors.surfaceHigh,
             ),
             if (capacityTotal > 0) ...[
-              const SizedBox(height: 12),
-              LemaProgressBar(
-                value: progress,
-                color: AppColors.primaryStrong,
-                background: AppColors.surfaceHigh,
+              const SizedBox(height: 10),
+              Text(
+                unsoldCount == 0
+                    ? 'SOLD OUT!'
+                    : '$unsoldCount ${unsoldCount == 1 ? 'entrada sin vender' : 'entradas sin vender'}',
+                style: textTheme.bodyMedium?.copyWith(
+                  color: AppColors.onSurfaceMuted,
+                ),
               ),
             ],
-            const SizedBox(height: 8),
-            Text(
-              capacityTotal > 0
-                  ? '$checkedInCount de $capacityTotal plazas · QR y accesos manuales'
-                  : 'Aforo sin definir · incluye accesos por QR y manuales',
-              style: textTheme.bodyMedium?.copyWith(
-                color: AppColors.onSurfaceMuted,
-              ),
-            ),
           ],
         ],
       ),
