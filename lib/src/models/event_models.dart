@@ -346,6 +346,8 @@ class AccessEventSummary {
   final int capacityTotal;
   final DateTime? lastActivityAt;
   final bool canViewCurrentOccupancy;
+
+  int get soldCount => checkedInCount + pendingCheckInCount;
 }
 
 class AccessScannerInviteClaimResult {

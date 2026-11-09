@@ -34,12 +34,11 @@ extension AccessEventSummaryUi on AccessEventSummary {
 
   bool get isFinished => isEnded || isCancelled || isArchived || isDraft;
 
-  double get progress =>
-      capacityTotal <= 0 ? 0 : checkedInCount / capacityTotal;
+  double get progress => soldCount <= 0 ? 0 : checkedInCount / soldCount;
 
   String get progressLabel => '${(progress * 100).round()}%';
 
-  String get capacityLabel => '$checkedInCount / $capacityTotal';
+  String get capacityLabel => '$checkedInCount / $soldCount vendidas';
 
   String get statusLabel {
     switch (operationalState) {
@@ -101,14 +100,14 @@ extension AccessEventHomeUi on AccessEventHome {
 
   bool get isFinished => isEnded || isCancelled || isArchived || isDraft;
 
-  double get progress => counters.capacityTotal <= 0
+  double get progress => counters.soldCount <= 0
       ? 0
-      : counters.checkedInCount / counters.capacityTotal;
+      : counters.checkedInCount / counters.soldCount;
 
   String get progressLabel => '${(progress * 100).round()}%';
 
   String get capacityLabel =>
-      '${counters.checkedInCount} / ${counters.capacityTotal}';
+      '${counters.checkedInCount} / ${counters.soldCount} vendidas';
 
   String get statusLabel {
     switch (operationalState) {

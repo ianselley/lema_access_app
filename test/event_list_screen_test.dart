@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lema_access_app/src/models/event_models.dart';
 import 'package:lema_access_app/src/providers/event_providers.dart';
 import 'package:lema_access_app/src/screens/event_list_screen.dart';
+import 'package:lema_access_app/src/screens/event_ui.dart';
 
 void main() {
   testWidgets('expands the code form from the empty events card', (
@@ -48,6 +49,62 @@ void main() {
     expect(find.text('0%'), findsNothing);
     expect(find.text('0 / 10'), findsNothing);
   });
+
+  for (final scenario in [
+    (
+      checkedIn: 3,
+      pending: 5,
+      capacity: 12,
+      progress: 0.375,
+      percentage: '38%',
+    ),
+    (checkedIn: 8, pending: 0, capacity: 12, progress: 1.0, percentage: '100%'),
+    (checkedIn: 0, pending: 0, capacity: 12, progress: 0.0, percentage: '0%'),
+    (checkedIn: 3, pending: 5, capacity: 0, progress: 0.375, percentage: '38%'),
+  ]) {
+    testWidgets(
+      'event card uses sold tickets for ${scenario.checkedIn} scanned, '
+      '${scenario.pending} pending and capacity ${scenario.capacity}',
+      (tester) async {
+        final event = _eventSummary(
+          id: 'live',
+          name: 'Evento',
+          operationalState: 'live',
+          issuedCount: 10,
+          checkedInCount: scenario.checkedIn,
+          pendingCheckInCount: scenario.pending,
+          capacityTotal: scenario.capacity,
+          canViewCurrentOccupancy: true,
+        );
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              accessEventsProvider.overrideWith((ref) async => [event]),
+            ],
+            child: const MaterialApp(home: EventListScreen()),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final soldCount = scenario.checkedIn + scenario.pending;
+        expect(event.soldCount, soldCount);
+        expect(event.progress, scenario.progress);
+        expect(find.text(scenario.percentage), findsOneWidget);
+        expect(
+          find.text('${scenario.checkedIn} / $soldCount vendidas'),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<LinearProgressIndicator>(
+                find.byType(LinearProgressIndicator),
+              )
+              .value,
+          scenario.progress,
+        );
+      },
+    );
+  }
 
   testWidgets('hides draft events and does not duplicate primary events', (
     tester,
@@ -114,6 +171,11 @@ AccessEventSummary _eventSummary({
   required String name,
   String operationalState = 'scheduled',
   DateTime? startTime,
+  int issuedCount = 0,
+  int checkedInCount = 0,
+  int pendingCheckInCount = 0,
+  int capacityTotal = 10,
+  bool canViewCurrentOccupancy = false,
 }) {
   return AccessEventSummary(
     event: AccessEventRecord(
@@ -150,11 +212,11 @@ AccessEventSummary _eventSummary({
       address: null,
       timezone: null,
     ),
-    issuedCount: 0,
-    checkedInCount: 0,
-    pendingCheckInCount: 0,
-    capacityTotal: 10,
+    issuedCount: issuedCount,
+    checkedInCount: checkedInCount,
+    pendingCheckInCount: pendingCheckInCount,
+    capacityTotal: capacityTotal,
     lastActivityAt: null,
-    canViewCurrentOccupancy: false,
+    canViewCurrentOccupancy: canViewCurrentOccupancy,
   );
 }

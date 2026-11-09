@@ -87,7 +87,7 @@ class _ScannerActiveScreenState extends ConsumerState<ScannerActiveScreen>
     with WidgetsBindingObserver, RouteAware, TickerProviderStateMixin {
   static const _barcodeFormats = <BarcodeFormat>[BarcodeFormat.all];
   static const _duplicateDebounce = Duration(milliseconds: 1200);
-  static const _resultDisplayDuration = Duration(milliseconds: 1500);
+  static const _resultDisplayDuration = Duration(seconds: 3);
   static const _bottomPanelHeight = 172.0;
 
   MobileScannerController? _scannerController;

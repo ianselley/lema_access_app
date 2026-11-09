@@ -34,6 +34,7 @@ class EventHomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (eventId.trim().isEmpty) {
       return LemaScaffold(
+        compactBackButton: true,
         body: _MissingEventState(onOpenScanner: onOpenScanner),
       );
     }
@@ -42,11 +43,13 @@ class EventHomeScreen extends ConsumerWidget {
 
     return asyncHome.when(
       loading: () => const LemaScaffold(
+        compactBackButton: true,
         body: Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
       ),
       error: (error, stackTrace) => LemaScaffold(
+        compactBackButton: true,
         body: _EventHomeErrorState(
           error: error,
           onRetry: () => ref.invalidate(accessEventHomeProvider(eventId)),
@@ -56,6 +59,7 @@ class EventHomeScreen extends ConsumerWidget {
         final history = home.recentHistoryPreview.take(5).toList();
 
         return LemaScaffold(
+          compactBackButton: true,
           body: Stack(
             children: [
               RefreshIndicator(

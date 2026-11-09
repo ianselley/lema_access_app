@@ -106,6 +106,17 @@ void main() {
       expect(find.text('Propietario de marca'), findsNothing);
       expect(find.text('Entradas escaneadas'), findsOneWidget);
       expect(find.text('3 de 8 vendidas · 38%'), findsOneWidget);
+      expect(home.progress, 0.375);
+      expect(home.progressLabel, '38%');
+      expect(home.capacityLabel, '3 / 8 vendidas');
+      expect(
+        tester
+            .widget<LinearProgressIndicator>(
+              find.byType(LinearProgressIndicator),
+            )
+            .value,
+        0.375,
+      );
       expect(find.text('4 entradas sin vender'), findsOneWidget);
       expect(find.text('Ocupación del aforo'), findsNothing);
       expect(find.textContaining('plazas'), findsNothing);

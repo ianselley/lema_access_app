@@ -73,6 +73,7 @@ class LemaScaffold extends StatelessWidget {
     this.floatingActionButton,
     this.padding = const EdgeInsets.fromLTRB(20, 20, 20, 24),
     this.showAutomaticBackButton = true,
+    this.compactBackButton = false,
   });
 
   final Widget body;
@@ -81,6 +82,7 @@ class LemaScaffold extends StatelessWidget {
   final Widget? floatingActionButton;
   final EdgeInsetsGeometry padding;
   final bool showAutomaticBackButton;
+  final bool compactBackButton;
 
   @override
   Widget build(BuildContext context) {
@@ -130,17 +132,24 @@ class LemaScaffold extends StatelessWidget {
                     alignment: Alignment.centerLeft,
                     child: TextButton.icon(
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 0,
-                          vertical: 0,
+                          vertical: compactBackButton ? 0 : 12,
                         ),
-                        minimumSize: const Size(0, 24),
+                        minimumSize: Size(0, compactBackButton ? 24 : 48),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: const VisualDensity(
-                          horizontal: -2,
-                          vertical: -4,
-                        ),
-                        foregroundColor: AppColors.onSurfaceMuted,
+                        visualDensity: compactBackButton
+                            ? const VisualDensity(horizontal: -2, vertical: -4)
+                            : VisualDensity.standard,
+                        foregroundColor: compactBackButton
+                            ? AppColors.onSurfaceMuted
+                            : AppColors.onSurface,
+                        textStyle: compactBackButton
+                            ? null
+                            : const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                       ),
                       onPressed: () async {
                         final didPop = await navigator?.maybePop() ?? false;
@@ -148,11 +157,14 @@ class LemaScaffold extends StatelessWidget {
                           navigationScope?.onBack?.call();
                         }
                       },
-                      icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                      icon: Icon(
+                        Icons.arrow_back_rounded,
+                        size: compactBackButton ? 18 : 22,
+                      ),
                       label: const Text('Volver'),
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: compactBackButton ? 12 : 6),
                 ],
                 Expanded(child: body),
               ],

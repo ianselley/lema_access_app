@@ -326,13 +326,12 @@ class _OperatorAppState extends ConsumerState<OperatorApp>
   Page<void> _buildPage(_RouteEntry entry) {
     final child = _buildScreen(entry);
     final name = entry.page.name;
-    final key = ValueKey<String>('${entry.page.name}:${entry.eventId ?? ''}');
 
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      return CupertinoPage<void>(key: key, name: name, child: child);
+      return CupertinoPage<void>(key: entry.key, name: name, child: child);
     }
 
-    return MaterialPage<void>(key: key, name: name, child: child);
+    return MaterialPage<void>(key: entry.key, name: name, child: child);
   }
 
   @override
@@ -344,7 +343,23 @@ class _OperatorAppState extends ConsumerState<OperatorApp>
         observers: [operatorRouteObserver],
         pages: _stack.map(_buildPage).toList(growable: false),
         onDidRemovePage: (page) {
-          _pop();
+          if (!mounted) {
+            return;
+          }
+
+          final index = _stack.indexWhere((entry) => entry.key == page.key);
+          if (index == -1) {
+            return;
+          }
+
+          if (_stack[index].page == OperatorPage.ticketDetail) {
+            ref.read(accessTicketCheckInControllerProvider.notifier).reset();
+          }
+
+          setState(() {
+            _stack.removeAt(index);
+          });
+          _syncRestorationState();
         },
       ),
     );
@@ -354,6 +369,7 @@ class _OperatorAppState extends ConsumerState<OperatorApp>
 class _RouteEntry {
   _RouteEntry(this.page, {this.eventId});
 
+  final LocalKey key = UniqueKey();
   final OperatorPage page;
   final String? eventId;
 }

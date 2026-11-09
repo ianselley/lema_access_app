@@ -326,6 +326,40 @@ void main() {
     },
   );
 
+  testWidgets('returned QR tickets show returned instead of cancelled', (
+    tester,
+  ) async {
+    scanner.response = AccessScanOutcome.fromJson(
+      stage: AccessScanStage.checkIn,
+      source: AccessScanSource.scanner,
+      rawInput: 'RETURNED',
+      json: {
+        'result_code': 'cancelled_or_invalid',
+        'reason_code': 'TICKET_STATUS_INVALID',
+        'ticket_status': 'cancelled',
+        'ticket': {'id': 'ticket-returned', 'status': 'cancelled'},
+        'invalid_context': {
+          'category': 'ticket_cancelled',
+          'ticket_status': 'cancelled',
+        },
+      },
+    );
+    await openScanner(tester);
+    tester.widget<MobileScanner>(find.byType(MobileScanner)).onDetect!(
+      const BarcodeCapture(barcodes: [Barcode(rawValue: 'RETURNED')]),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('TICKET DEVUELTO'), findsOneWidget);
+    expect(find.textContaining('CANCELADO'), findsNothing);
+    expect(find.textContaining('Cancelado'), findsNothing);
+    expect(find.text('Validar entrada'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(find.text('TICKET DEVUELTO'), findsNothing);
+  });
+
   testWidgets('used tickets with consumed extras dismiss automatically', (
     tester,
   ) async {
@@ -340,6 +374,8 @@ void main() {
     expect(find.text('Validar entrada'), findsNothing);
     expect(find.byType(CheckboxListTile), findsNothing);
     await tester.pump(const Duration(seconds: 2));
+    expect(find.text('TICKET YA UTILIZADO'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
     expect(find.text('TICKET YA UTILIZADO'), findsNothing);
   });

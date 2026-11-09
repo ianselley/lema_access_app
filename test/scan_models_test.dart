@@ -155,6 +155,39 @@ void main() {
       );
     });
 
+    test('presents cancelled tickets as returned tickets', () {
+      final outcome = AccessScanOutcome.fromJson(
+        stage: AccessScanStage.checkIn,
+        source: AccessScanSource.scanner,
+        rawInput: 'RETURNED',
+        json: <String, dynamic>{
+          'result_code': 'cancelled_or_invalid',
+          'reason_code': 'TICKET_STATUS_INVALID',
+          'can_check_in': false,
+          'ticket_status': 'cancelled',
+          'ticket': <String, dynamic>{
+            'id': 'ticket-returned',
+            'status': 'cancelled',
+          },
+          'invalid_context': <String, dynamic>{
+            'category': 'ticket_cancelled',
+            'ticket_status': 'cancelled',
+          },
+        },
+      );
+
+      expect(outcome.displayHeadline, 'Ticket devuelto');
+      expect(outcome.displayReasonLabel, 'Ticket devuelto');
+      expect(
+        outcome.displayBody,
+        'Este ticket fue devuelto y no permite el acceso.',
+      );
+      expect(accessTicketStatusLabel(outcome.ticketStatus), 'Devuelto');
+      expect(outcome.ticket?.statusLabel, 'Devuelto');
+      expect(outcome.isAccessGranted, isFalse);
+      expect(outcome.requiresValidityDecision, isFalse);
+    });
+
     test('parses invalid status context for voided tickets', () {
       final outcome = AccessScanOutcome.fromJson(
         stage: AccessScanStage.checkIn,

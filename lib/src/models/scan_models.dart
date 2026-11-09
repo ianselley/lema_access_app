@@ -18,7 +18,7 @@ String accessTicketStatusLabel(String? status) {
     case 'checked_in':
       return 'Registrado';
     case 'cancelled':
-      return 'Cancelado';
+      return 'Devuelto';
     case 'voided':
       return 'Anulado';
     case null:
@@ -38,7 +38,7 @@ String? accessScanInvalidCategoryLabel(String? category) {
     case 'different_event':
       return 'Otro evento';
     case 'ticket_cancelled':
-      return 'Ticket cancelado';
+      return 'Ticket devuelto';
     case 'ticket_voided':
       return 'Ticket anulado';
     case 'ticket_status_invalid':
@@ -438,7 +438,7 @@ class AccessScanOutcome {
       case 'different_event':
         return 'Ticket de otro evento';
       case 'ticket_cancelled':
-        return 'Ticket cancelado';
+        return 'Ticket devuelto';
       case 'ticket_voided':
         return 'Ticket anulado';
       case 'event_access_denied':
@@ -478,7 +478,7 @@ class AccessScanOutcome {
           'No pertenece al evento que estás escaneando ahora.',
         ]);
       case 'ticket_cancelled':
-        return 'Este ticket fue cancelado y no permite el acceso.';
+        return 'Este ticket fue devuelto y no permite el acceso.';
       case 'ticket_voided':
         return 'Este ticket fue anulado y no permite el acceso.';
       case 'ticket_status_invalid':
